@@ -12,6 +12,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@theme {
+  --color-livento-pink: #FF1F72;
+  --color-livento-dark: #0B0B0F;
+  --color-livento-card: #1A1A24;
+  --color-livento-muted: rgba(255, 255, 255, 0.55);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;

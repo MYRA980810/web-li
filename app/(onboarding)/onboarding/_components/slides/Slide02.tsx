@@ -1,80 +1,77 @@
-import Image from 'next/image'
-import { LiventoLogo } from '../../../_components/LiventoLogo'
+import { BrandMark } from '../../../_components/BrandMark'
+import { ChatVisual } from '../visuals/ChatVisual'
 
-export function Slide02() {
+export function PhoneChat() {
   return (
-    <div className="flex flex-col min-h-full px-6 pt-14 pb-4 bg-livento-dark">
-      <div className="flex items-center justify-between">
-        <LiventoLogo />
-        <button
-          type="button"
-          aria-label="Chat"
-          className="w-10 h-10 rounded-full bg-livento-pink/20 flex items-center justify-center"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF1F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Live card */}
-      <div className="relative mt-8 w-full rounded-2xl overflow-hidden bg-livento-card">
-        {/* Streamer image with gradient overlay */}
-        <div className="relative w-full aspect-4/3">
-          <Image
-            src="/onboarding/slide-02-streamer.png"
-            alt="Streamer en vivo"
-            fill
-            className="object-cover object-top"
-            priority
-          />
-          <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-livento-card" />
-
-          {/* Floating hearts - right edge */}
-          <div className="absolute right-3 top-1/4 flex flex-col gap-2">
-            {[1, 2, 3].map((i) => (
-              <span key={i} className="text-livento-pink text-xl drop-shadow-md">♥</span>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat messages overlay */}
-        <div className="px-4 pb-4 pt-2 flex flex-col gap-2">
-          <ChatMessage user="@alex_m" text="¿Tienen talla M disponible? 😊" />
-          <ChatMessage user="@lucia_trend" text="¡Me encanta el color!" />
-          <div className="mt-1">
-            <LiveNowPill />
-          </div>
+    <div className="absolute inset-0 pt-15 px-4.5 pb-6 flex flex-col">
+      <div className="flex justify-between items-center mb-3.5">
+        <BrandMark size={15} />
+        <div className="size-9 rounded-full flex items-center justify-center text-sm text-brand-400" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,31,135,0.4)' }}>
+          💬
         </div>
       </div>
-
-      <div className="mt-6 flex flex-col gap-3">
-        <h1 className="text-4xl font-bold leading-tight text-white">
+      <div className="relative flex-1 rounded-[22px] overflow-hidden chat-bg" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+        <ChatVisual />
+      </div>
+      <div className="mt-6">
+        <div className="live-badge inline-flex mb-3.5">
+          <span className="dot" />LIVE NOW
+        </div>
+        <div className="font-display font-bold text-[22px] tracking-[-0.02em] leading-[1.1] mt-3">
           Interactúa y participa
-        </h1>
-        <p className="text-sm leading-relaxed text-livento-muted text-center">
-          Sé parte de la comunidad. Chatea en tiempo real, envía reacciones y haz
-          tus preguntas directamente al vendedor durante el live.
-        </p>
+        </div>
+        <div className="text-xs text-(--ink-2) mt-2 leading-relaxed">
+          Chatea en tiempo real con el vendedor.
+        </div>
       </div>
     </div>
   )
 }
 
-function ChatMessage({ user, text }: { user: string; text: string }) {
+export function DesktopChipsChat() {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-livento-pink text-xs font-semibold">{user}</span>
-      <span className="text-white/90 text-xs">{text}</span>
-    </div>
+    <>
+      <div className="float-pos chip-1 float-y flex items-center gap-2 rounded-2xl p-[8px_12px] backdrop-blur-[20px]" style={{ background: 'rgba(15,15,22,0.8)', border: '1px solid var(--line)' }}>
+        <div className="size-5 rounded-full shrink-0 bg-(--cyan-400)" />
+        <div>
+          <div className="text-[9px] font-bold text-(--cyan-400)">@alex_m</div>
+          <div className="text-[11px]">¿Tienen talla M? 😍</div>
+        </div>
+      </div>
+      <div className="chip float-pos chip-2 float-y delay-1">
+        <span className="text-brand-400 text-base">♥</span>
+        <span><strong>+248</strong> reacciones</span>
+      </div>
+      <div className="float-pos chip-3 float-y delay-2 flex items-center gap-2 rounded-2xl p-[8px_12px] backdrop-blur-[20px]" style={{ background: 'rgba(15,15,22,0.8)', border: '1px solid var(--line)' }}>
+        <div className="size-5 rounded-full shrink-0 bg-brand-400" />
+        <div>
+          <div className="text-[9px] font-bold text-brand-400">@lucia_trend</div>
+          <div className="text-[11px]">¡Me encanta el color!</div>
+        </div>
+      </div>
+      <div className="chip float-pos chip-4 float-y delay-1">
+        <div className="size-6 rounded-full shrink-0 bg-[linear-gradient(135deg,#a78bfa,#6366f1)]" />
+        <span><strong>@diego_fit</strong> respondió</span>
+      </div>
+    </>
   )
 }
 
-function LiveNowPill() {
+export function MobileChipsChat() {
   return (
-    <span className="inline-flex items-center gap-1.5 bg-livento-pink/15 border border-livento-pink/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-      <span className="w-1.5 h-1.5 rounded-full bg-livento-pink animate-pulse" />
-      LIVE NOW
-    </span>
+    <>
+      <div className="mob-chip mob-chip-tl float-y">
+        <div className="size-4 rounded-full shrink-0 bg-(--cyan-400)" />
+        <span><strong>@alex_m</strong> · talla M?</span>
+      </div>
+      <div className="mob-chip mob-chip-mr float-y delay-1">
+        <span className="text-brand-400 text-sm">♥</span>
+        <span><strong>+248</strong></span>
+      </div>
+      <div className="mob-chip mob-chip-bl float-y delay-2">
+        <div className="size-4 rounded-full shrink-0 bg-brand-400" />
+        <span><strong>@lucia</strong> · genial!</span>
+      </div>
+    </>
   )
 }

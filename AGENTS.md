@@ -389,6 +389,49 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) { ... }
 
 ---
 
+## Styling Pattern (mandatory)
+
+Three layers, strictly separated:
+
+| Layer | What goes here | Example |
+|---|---|---|
+| **Tailwind** | Layout, spacing, typography, flexbox, grid, system colors | `flex items-center gap-3 text-brand-400` |
+| **`globals.css` classes** | Complex visual effects: multi-stop gradients, `filter`, `backdrop-filter`, `box-shadow`, `clip-path` | `.shop-bg`, `.chat-figure`, `.slide-discover-product` |
+| **Inline `style`** | Dynamic runtime values only — props that change at runtime | `style={{ fontSize: size }}` |
+
+### Rules
+
+**Never** write inline styles for static layout — use Tailwind.
+
+**Never** use Tailwind arbitrary values for complex gradients — define a semantic CSS class in `globals.css` instead:
+```tsx
+// ✗ unreadable, unmaintainable
+<div className="bg-[radial-gradient(ellipse_at_60%_35%,#c47090_0%,transparent_45%)]" />
+
+// ✓ semantic, maintainable
+<div className="shop-bg" />
+```
+
+**CSS variables from the design system** use Tailwind v4 canonical syntax — not `[var(...)]`:
+```tsx
+// ✗ v3 style
+<p className="text-[var(--ink-2)]" />
+
+// ✓ v4 canonical
+<p className="text-(--ink-2)" />
+```
+
+**When adding a new CSS class to `globals.css`**, name it semantically (what it *is*, not what it looks like):
+```css
+/* ✗ */
+.pink-radial-gradient { ... }
+
+/* ✓ */
+.slide-discover-product { ... }
+```
+
+---
+
 ## Live Commerce Specific Patterns
 
 This is a live commerce app. Key UI patterns to anticipate:
@@ -409,4 +452,18 @@ app/(shop)/live/
     LiveChat.tsx         — 'use client' (real-time)
     ProductShowcase.tsx  — Server Component (product data)
 ```
+---
+
+## Codebase Navigation (mandatory)
+
+The project has a graphify knowledge graph at `graphify-out/`. **Always use graphify to search or explore the codebase** instead of reading files directly.
+
+| Task | Command |
+|---|---|
+| Find where something is defined or how it connects | `graphify query "question"` |
+| Understand a specific component or symbol | `graphify explain "NodeName"` |
+| Trace a relationship between two concepts | `graphify path "NodeA" "NodeB"` |
+
+Only fall back to `Read` or `grep` when the file was created after the last graphify run (not yet indexed).
+
 <!-- END:nextjs-agent-rules -->

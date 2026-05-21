@@ -7,15 +7,13 @@ type OnboardingProgressProps = {
 
 export function OnboardingProgress({ total, current }: OnboardingProgressProps) {
   return (
-    <div className="flex gap-2" role="tablist" aria-label="Onboarding progress">
+    <div className="dots" role="tablist" aria-label="Onboarding progress">
       {Array.from({ length: total }).map((_, i) => (
-        <div
+        <span
           key={i}
           role="tab"
           aria-selected={i === current}
-          className={`h-2 rounded-full transition-all duration-300 ${
-            i === current ? 'w-6 bg-livento-pink' : 'w-2 bg-white/30'
-          }`}
+          className={`dot${i === current ? ' active' : ''}`}
         />
       ))}
     </div>

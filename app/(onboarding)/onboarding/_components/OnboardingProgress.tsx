@@ -14,7 +14,7 @@ export function OnboardingProgress({ total, current }: OnboardingProgressProps) 
           role="tab"
           aria-selected={i === current}
           className={`h-2 rounded-full transition-all duration-300 ${
-            i === current ? 'w-6 bg-current' : 'w-2 bg-current opacity-30'
+            i === current ? 'w-6 bg-livento-pink' : 'w-2 bg-white/30'
           }`}
         />
       ))}

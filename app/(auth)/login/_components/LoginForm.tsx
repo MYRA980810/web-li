@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { AppleIcon, GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
 
@@ -9,6 +10,7 @@ type Tab = 'email' | 'phone'
 
 export function LoginForm() {
   const [tab, setTab] = useState<Tab>('email')
+  const router = useRouter()
 
   return (
     <div className="auth-form">
@@ -21,7 +23,11 @@ export function LoginForm() {
         </p>
       </div>
 
-      <button className="oauth-btn reveal d2" style={{ width: '100%', padding: '16px 20px' }}>
+      <button
+        className="oauth-btn reveal d2"
+        style={{ width: '100%', padding: '16px 20px' }}
+        onClick={() => router.push('/google-auth')}
+      >
         <span
           className="oauth-icon"
           style={{ background: 'linear-gradient(135deg,#4285F4,#34A853,#FBBC05,#EA4335)', color: '#fff' }}

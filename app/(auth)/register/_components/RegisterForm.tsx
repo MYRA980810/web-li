@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
 
@@ -17,6 +18,7 @@ function AppleIcon() {
 
 export function RegisterForm() {
   const [role, setRole] = useState<UserType>('client')
+  const router = useRouter()
 
   return (
     <div className="auth-form">
@@ -72,7 +74,7 @@ export function RegisterForm() {
       <div className="divider reveal d5">o continúa con</div>
 
       <div className="oauth-row reveal d5">
-        <button type="button" className="oauth-btn">
+        <button type="button" className="oauth-btn" onClick={() => router.push('/google-auth')}>
           <span className="oauth-icon" style={{ background: 'linear-gradient(135deg,#4285F4,#34A853,#FBBC05,#EA4335)', color: '#fff' }}>
             <GoogleIcon />
           </span>

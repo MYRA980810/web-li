@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
 
-type UserType = 'seller' | 'client'
+type UserType = 'SELLER' | 'BUYER'
 
 function AppleIcon() {
   return (
@@ -17,7 +17,7 @@ function AppleIcon() {
 }
 
 export function RegisterForm() {
-  const [role, setRole] = useState<UserType>('client')
+  const [role, setRole] = useState<UserType>('BUYER')
   const router = useRouter()
 
   return (
@@ -32,7 +32,7 @@ export function RegisterForm() {
       </div>
 
       <div className="reveal d2" style={{ display: 'flex', gap: 12 }}>
-        {(['seller', 'client'] as UserType[]).map((type) => (
+        {(['SELLER', 'BUYER'] as UserType[]).map((type) => (
           <div
             key={type}
             className={`role-card${role === type ? ' active' : ''}`}
@@ -43,8 +43,8 @@ export function RegisterForm() {
             onKeyDown={(e) => e.key === 'Enter' && setRole(type)}
           >
             <div className="check">✓</div>
-            <div className="icon-box">{type === 'seller' ? '🏪' : '🛍'}</div>
-            <div className="card-label">{type === 'seller' ? 'Vendedor' : 'Cliente'}</div>
+            <div className="icon-box">{type === 'SELLER' ? '🏪' : '🛍'}</div>
+            <div className="card-label">{type === 'SELLER' ? 'Vendedor' : 'Comprador'}</div>
           </div>
         ))}
       </div>

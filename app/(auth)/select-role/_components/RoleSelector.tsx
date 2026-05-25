@@ -3,16 +3,16 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type UserRole = 'seller' | 'client'
+type UserRole = 'SELLER' | 'BUYER'
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
-  seller: 'Creá tu tienda, transmití en vivo y vendé tus productos a miles de personas en tiempo real.',
-  client: 'Explorá lives en tiempo real, descubrí productos exclusivos y comprá directamente desde el stream.',
+  SELLER: 'Creá tu tienda, transmití en vivo y vendé tus productos a miles de personas en tiempo real.',
+  BUYER: 'Explorá lives en tiempo real, descubrí productos exclusivos y comprá directamente desde el stream.',
 }
 
 export function RoleSelector() {
   const router = useRouter()
-  const [role, setRole] = useState<UserRole>('client')
+  const [role, setRole] = useState<UserRole>('BUYER')
 
   return (
     <div className="auth-form">
@@ -26,7 +26,7 @@ export function RoleSelector() {
       </div>
 
       <div className="reveal d2" style={{ display: 'flex', gap: 12 }}>
-        {(['seller', 'client'] as UserRole[]).map((type) => (
+        {(['SELLER', 'BUYER'] as UserRole[]).map((type) => (
           <div
             key={type}
             className={`role-card${role === type ? ' active' : ''}`}
@@ -37,8 +37,8 @@ export function RoleSelector() {
             onKeyDown={(e) => e.key === 'Enter' && setRole(type)}
           >
             <div className="check">✓</div>
-            <div className="icon-box">{type === 'seller' ? '🏪' : '🛍'}</div>
-            <div className="card-label">{type === 'seller' ? 'Vendedor' : 'Cliente'}</div>
+            <div className="icon-box">{type === 'SELLER' ? '🏪' : '🛍'}</div>
+            <div className="card-label">{type === 'SELLER' ? 'Vendedor' : 'Comprador'}</div>
           </div>
         ))}
       </div>
@@ -52,7 +52,7 @@ export function RoleSelector() {
         style={{ width: '100%', marginTop: 4 }}
         onClick={() => router.push('/')}
       >
-        Continuar como {role === 'seller' ? 'Vendedor' : 'Cliente'} <span aria-hidden>→</span>
+        Continuar como {role === 'SELLER' ? 'Vendedor' : 'Comprador'} <span aria-hidden>→</span>
       </button>
     </div>
   )

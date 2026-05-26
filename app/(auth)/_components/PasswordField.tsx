@@ -23,9 +23,11 @@ function EyeOffIcon() {
 export type PasswordFieldProps = {
   autoComplete?: string
   className?: string
+  value?: string
+  onChange?: (value: string) => void
 }
 
-export function PasswordField({ autoComplete = 'current-password', className }: PasswordFieldProps) {
+export function PasswordField({ autoComplete = 'current-password', className, value, onChange }: PasswordFieldProps) {
   const [show, setShow] = useState(false)
   return (
     <div className={`field${className ? ` ${className}` : ''}`}>
@@ -36,6 +38,7 @@ export function PasswordField({ autoComplete = 'current-password', className }: 
           type={show ? 'text' : 'password'}
           placeholder="••••••••"
           autoComplete={autoComplete}
+          {...(value !== undefined ? { value, onChange: (e) => onChange?.(e.target.value) } : {})}
         />
         <button
           type="button"

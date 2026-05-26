@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { OtpForm } from './_components/OtpForm'
 import { BrandSidePanel } from '../_components/BrandSidePanel'
 
@@ -7,14 +8,27 @@ export const metadata: Metadata = {
   title: 'Verificar cuenta — Livento',
 }
 
-export default function VerifyOtpPage() {
+type VerificationChannel = 'EMAIL' | 'SMS' | 'WHATSAPP'
+
+export default async function VerifyOtpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string; channel?: string }>
+}) {
+  const { token, channel } = await searchParams
+
+  if (!token) redirect('/register')
+
+  const verificationChannel: VerificationChannel =
+    channel === 'SMS' || channel === 'WHATSAPP' ? channel : 'EMAIL'
+
   return (
     <>
       {/* Desktop */}
       <div className="auth-desktop screen-enter">
         <BrandSidePanel variant="register" />
         <div className="auth-form-card glass" style={{ borderRadius: 32 }}>
-          <OtpForm />
+          <OtpForm pendingToken={token} channel={verificationChannel} />
         </div>
       </div>
 
@@ -53,7 +67,7 @@ export default function VerifyOtpPage() {
             <div style={{ width: 40 }} />
           </div>
 
-          <OtpForm />
+          <OtpForm pendingToken={token} channel={verificationChannel} />
         </div>
       </div>
     </>

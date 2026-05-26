@@ -4,13 +4,26 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { VerifyLoader } from './VerifyLoader'
 import { VerifySuccess } from './VerifySuccess'
 import { VerifyError } from './VerifyError'
+import { verifyOtp, resendOtp } from '@/lib/actions'
 
 const OTP_LENGTH = 6
 const RESEND_SECONDS = 59
 
 type Status = 'idle' | 'verifying' | 'success' | 'error'
+type VerificationChannel = 'EMAIL' | 'SMS' | 'WHATSAPP'
 
-export function OtpForm() {
+type OtpFormProps = {
+  pendingToken: string
+  channel: VerificationChannel
+}
+
+const CHANNEL_LABEL: Record<VerificationChannel, string> = {
+  EMAIL:    'correo electrónico',
+  SMS:      'teléfono',
+  WHATSAPP: 'WhatsApp',
+}
+
+export function OtpForm({ pendingToken, channel }: OtpFormProps) {
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''))
   const [seconds, setSeconds] = useState(RESEND_SECONDS)
   const [canResend, setCanResend] = useState(false)
@@ -44,21 +57,20 @@ export function OtpForm() {
     refs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus()
   }
 
-  function handleResend() {
+  async function handleResend() {
+    await resendOtp(pendingToken)
     setSeconds(RESEND_SECONDS)
     setCanResend(false)
     setDigits(Array(OTP_LENGTH).fill(''))
     refs.current[0]?.focus()
   }
 
-  const handleVerify = useCallback(() => {
+  const handleVerify = useCallback(async () => {
     if (!digits.every(d => d !== '')) return
     setStatus('verifying')
-    // Replace with real API call — "111111" simulates an error for testing
-    setTimeout(() => {
-      setStatus(digits.join('') === '111111' ? 'error' : 'success')
-    }, 3000)
-  }, [digits])
+    const result = await verifyOtp(pendingToken, digits.join(''))
+    setStatus(result.ok ? 'success' : 'error')
+  }, [digits, pendingToken])
 
   function handleRetry() {
     setStatus('idle')
@@ -85,7 +97,8 @@ export function OtpForm() {
             Verifica <em>tu cuenta</em>
           </h2>
           <p className="lead" style={{ marginTop: 14, fontSize: 15 }}>
-            Ingresa el código de 6 dígitos enviado a tu correo o teléfono.
+            Ingresa el código de 6 dígitos enviado a tu{' '}
+            {CHANNEL_LABEL[channel]}.
           </p>
         </div>
 

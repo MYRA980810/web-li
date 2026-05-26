@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
 import { IdentifierField } from '../../_components/IdentifierField'
+import { registerUser } from '@/lib/actions'
+import { registerSchema } from '@/lib/schemas'
 
 type UserType = 'SELLER' | 'BUYER'
 
@@ -18,9 +20,36 @@ function AppleIcon() {
 }
 
 export function RegisterForm() {
-  const [role, setRole] = useState<UserType>('BUYER')
+  const [role, setRole]           = useState<UserType>('BUYER')
   const [identifier, setIdentifier] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName]   = useState('')
+  const [password, setPassword]   = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState<string | null>(null)
   const router = useRouter()
+
+  async function handleSubmit() {
+    setError(null)
+    const parsed = registerSchema.safeParse({
+      contact: identifier, password, firstName, lastName, role,
+    })
+    if (!parsed.success) {
+      const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+      setError(first ?? 'Revisá los campos')
+      return
+    }
+    setLoading(true)
+    const result = await registerUser(parsed.data)
+    setLoading(false)
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+    router.push(
+      `/verify-otp?token=${encodeURIComponent(result.pendingToken)}&channel=${result.channel}`,
+    )
+  }
 
   return (
     <div className="auth-form">
@@ -52,10 +81,28 @@ export function RegisterForm() {
       </div>
 
       <div className="field reveal d3">
-        <label className="label">Nombre completo</label>
+        <label className="label">Nombre</label>
         <div className="input-wrap">
           <span className="icon">👤</span>
-          <input placeholder="Ej: Alex Rivera" autoComplete="name" />
+          <input
+            placeholder="Ej: Alex"
+            autoComplete="given-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="field reveal d3">
+        <label className="label">Apellido</label>
+        <div className="input-wrap">
+          <span className="icon">👤</span>
+          <input
+            placeholder="Ej: Rivera"
+            autoComplete="family-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
         </div>
       </div>
 
@@ -65,10 +112,27 @@ export function RegisterForm() {
         className="reveal d3"
       />
 
-      <PasswordField className="reveal d4" autoComplete="new-password" />
+      <PasswordField
+        className="reveal d4"
+        autoComplete="new-password"
+        value={password}
+        onChange={setPassword}
+      />
 
-      <button className="btn-pill reveal d4" style={{ width: '100%' }}>
-        Crear cuenta <span aria-hidden>→</span>
+      {error && (
+        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
+          {error}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={loading}
+        className="btn-pill reveal d4"
+        style={{ width: '100%' }}
+      >
+        {loading ? 'Creando cuenta…' : 'Crear cuenta'} <span aria-hidden>→</span>
       </button>
 
       <div className="divider reveal d5">o continúa con</div>

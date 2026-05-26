@@ -5,11 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AppleIcon, GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
-
-type Tab = 'email' | 'phone'
+import { IdentifierField } from '../../_components/IdentifierField'
 
 export function LoginForm() {
-  const [tab, setTab] = useState<Tab>('email')
+  const [identifier, setIdentifier] = useState('')
   const router = useRouter()
 
   return (
@@ -49,34 +48,11 @@ export function LoginForm() {
 
       <div className="divider reveal d2">o entra con</div>
 
-      <div className="tab-row reveal d3">
-        <button
-          type="button"
-          className={`tab-btn${tab === 'email' ? ' active' : ''}`}
-          onClick={() => setTab('email')}
-        >
-          Email
-        </button>
-        <button
-          type="button"
-          className={`tab-btn${tab === 'phone' ? ' active' : ''}`}
-          onClick={() => setTab('phone')}
-        >
-          Teléfono
-        </button>
-      </div>
-
-      <div className="field reveal d3">
-        <label className="label">{tab === 'email' ? 'Email' : 'Teléfono'}</label>
-        <div className="input-wrap">
-          <span className="icon">{tab === 'email' ? '@' : '☎'}</span>
-          <input
-            type={tab === 'email' ? 'email' : 'tel'}
-            placeholder={tab === 'email' ? 'myramex23@gmail.com' : '+52 55 1234 5678'}
-            autoComplete={tab === 'email' ? 'email' : 'tel'}
-          />
-        </div>
-      </div>
+      <IdentifierField
+        value={identifier}
+        onChange={setIdentifier}
+        className="reveal d3"
+      />
 
       <PasswordField className="reveal d4" autoComplete="current-password" />
 

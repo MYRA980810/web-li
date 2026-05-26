@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
+import { IdentifierField } from '../../_components/IdentifierField'
 
 type UserType = 'SELLER' | 'BUYER'
 
@@ -18,6 +19,7 @@ function AppleIcon() {
 
 export function RegisterForm() {
   const [role, setRole] = useState<UserType>('BUYER')
+  const [identifier, setIdentifier] = useState('')
   const router = useRouter()
 
   return (
@@ -57,13 +59,11 @@ export function RegisterForm() {
         </div>
       </div>
 
-      <div className="field reveal d3">
-        <label className="label">Correo o teléfono</label>
-        <div className="input-wrap">
-          <span className="icon">@</span>
-          <input placeholder="alex@ejemplo.com" autoComplete="email" />
-        </div>
-      </div>
+      <IdentifierField
+        value={identifier}
+        onChange={setIdentifier}
+        className="reveal d3"
+      />
 
       <PasswordField className="reveal d4" autoComplete="new-password" />
 

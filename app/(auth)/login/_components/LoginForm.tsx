@@ -6,10 +6,30 @@ import { useRouter } from 'next/navigation'
 import { AppleIcon, GoogleIcon } from '../../_components/auth-icons'
 import { PasswordField } from '../../_components/PasswordField'
 import { IdentifierField } from '../../_components/IdentifierField'
+import { loginUser } from '@/lib/actions'
+import { loginSchema } from '@/lib/schemas'
 
 export function LoginForm() {
   const [identifier, setIdentifier] = useState('')
+  const [password, setPassword]     = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
   const router = useRouter()
+
+  async function handleSubmit() {
+    setError(null)
+    const parsed = loginSchema.safeParse({ contact: identifier, password })
+    if (!parsed.success) {
+      const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+      setError(first ?? 'Revisá los campos')
+      return
+    }
+    setLoading(true)
+    const result = await loginUser(parsed.data)
+    setLoading(false)
+    if (!result.ok) { setError(result.error); return }
+    router.push('/')
+  }
 
   return (
     <div className="auth-form">
@@ -54,10 +74,27 @@ export function LoginForm() {
         className="reveal d3"
       />
 
-      <PasswordField className="reveal d4" autoComplete="current-password" />
+      <PasswordField
+        className="reveal d4"
+        autoComplete="current-password"
+        value={password}
+        onChange={setPassword}
+      />
 
-      <button className="btn-pill reveal d4" style={{ width: '100%', marginTop: 8 }}>
-        Continuar <span aria-hidden>→</span>
+      {error && (
+        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
+          {error}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={loading}
+        className="btn-pill reveal d4"
+        style={{ width: '100%', marginTop: 8 }}
+      >
+        {loading ? 'Iniciando sesión…' : 'Continuar'} <span aria-hidden>→</span>
       </button>
 
       <div className="reveal d5" style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', marginTop: 4 }}>

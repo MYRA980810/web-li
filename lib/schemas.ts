@@ -23,4 +23,10 @@ export const verifyOtpSchema = z.object({
   code:         z.string().length(6, 'El código debe tener 6 dígitos'),
 })
 
+export const loginSchema = z.object({
+  contact:  contactSchema,
+  password: z.string().min(1, 'Ingresá tu contraseña'),
+})
+
 export type RegisterInput = z.infer<typeof registerSchema>
+export type LoginInput    = z.infer<typeof loginSchema>

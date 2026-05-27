@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { registerSchema, verifyOtpSchema } from './schemas'
+import { registerSchema, verifyOtpSchema, loginSchema, type LoginInput } from './schemas'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -97,6 +97,42 @@ export async function verifyOtp(
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
+  })
+
+  return { ok: true }
+}
+
+export async function loginUser(payload: LoginInput): Promise<ActionResult> {
+  const parsed = loginSchema.safeParse(payload)
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+    return { ok: false, error: first ?? 'Datos inválidos' }
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${API}/api/auth/login`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ contact: parsed.data.contact, password: parsed.data.password }),
+    })
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = await res.json()
+  const cookieStore = await cookies()
+  cookieStore.set('session', data.accessToken, {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path:     '/',
+    maxAge:   60 * 60 * 24 * 7,
   })
 
   return { ok: true }

@@ -23,15 +23,16 @@ function EyeOffIcon() {
 export type PasswordFieldProps = {
   autoComplete?: string
   className?: string
+  label?: string
   value?: string
   onChange?: (value: string) => void
 }
 
-export function PasswordField({ autoComplete = 'current-password', className, value, onChange }: PasswordFieldProps) {
+export function PasswordField({ autoComplete = 'current-password', className, label = 'Contraseña', value, onChange }: PasswordFieldProps) {
   const [show, setShow] = useState(false)
   return (
     <div className={`field${className ? ` ${className}` : ''}`}>
-      <label className="label">Contraseña</label>
+      <label className="label">{label}</label>
       <div className="input-wrap">
         <span className="icon">🔒</span>
         <input

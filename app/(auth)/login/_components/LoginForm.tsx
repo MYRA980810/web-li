@@ -81,6 +81,14 @@ export function LoginForm() {
         onChange={setPassword}
       />
 
+      <Link
+        href="/forgot-password"
+        className="reveal d4"
+        style={{ fontSize: 13, color: 'var(--brand-400)', alignSelf: 'flex-end', marginTop: -8 }}
+      >
+        Forgot password?
+      </Link>
+
       {error && (
         <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
           {error}

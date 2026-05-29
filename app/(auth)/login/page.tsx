@@ -7,14 +7,20 @@ export const metadata: Metadata = {
   title: 'Iniciar sesión — Livento',
 }
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error } = await searchParams
+
   return (
     <>
       {/* Desktop */}
       <div className="auth-desktop screen-enter">
         <BrandSidePanel variant="login" />
         <div className="auth-form-card glass" style={{ borderRadius: 32 }}>
-          <LoginForm />
+          <LoginForm oauthError={error} />
         </div>
       </div>
 
@@ -35,7 +41,7 @@ export default function LoginPage() {
             </span>
             <div style={{ width: 40 }} />
           </div>
-          <LoginForm />
+          <LoginForm oauthError={error} />
         </div>
       </div>
     </>

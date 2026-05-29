@@ -9,11 +9,22 @@ import { IdentifierField } from '../../_components/IdentifierField'
 import { loginUser } from '@/lib/actions'
 import { loginSchema } from '@/lib/schemas'
 
-export function LoginForm() {
+type Props = {
+  oauthError?: string
+}
+
+const OAUTH_ERRORS: Record<string, string> = {
+  email_conflict: 'Este email ya está registrado con otro método. Iniciá sesión con tu contraseña.',
+  oauth: 'Ocurrió un error al autenticar con Google. Intentá de nuevo.',
+}
+
+export function LoginForm({ oauthError }: Props) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword]     = useState('')
   const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState<string | null>(null)
+  const [error, setError]           = useState<string | null>(
+    oauthError ? (OAUTH_ERRORS[oauthError] ?? 'Ocurrió un error al autenticar con Google.') : null
+  )
   const router = useRouter()
 
   async function handleSubmit() {

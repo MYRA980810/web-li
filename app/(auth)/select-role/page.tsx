@@ -7,14 +7,20 @@ export const metadata: Metadata = {
   title: 'Elegí tu rol — Livento',
 }
 
-export default function SelectRolePage() {
+export default async function SelectRolePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string }>
+}) {
+  const { token } = await searchParams
+
   return (
     <>
       {/* Desktop */}
       <div className="auth-desktop screen-enter">
         <BrandSidePanel variant="register" />
         <div className="auth-form-card glass" style={{ borderRadius: 32 }}>
-          <RoleSelector />
+          <RoleSelector pendingToken={token} />
         </div>
       </div>
 
@@ -35,7 +41,7 @@ export default function SelectRolePage() {
             </span>
             <div style={{ width: 40 }} />
           </div>
-          <RoleSelector />
+          <RoleSelector pendingToken={token} />
         </div>
       </div>
     </>

@@ -2,17 +2,34 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { completeGoogleAuth } from '@/lib/actions'
 
 type UserRole = 'SELLER' | 'BUYER'
+
+type Props = {
+  pendingToken?: string
+}
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   SELLER: 'Creá tu tienda, transmití en vivo y vendé tus productos a miles de personas en tiempo real.',
   BUYER: 'Explorá lives en tiempo real, descubrí productos exclusivos y comprá directamente desde el stream.',
 }
 
-export function RoleSelector() {
+export function RoleSelector({ pendingToken }: Props) {
   const router = useRouter()
-  const [role, setRole] = useState<UserRole>('BUYER')
+  const [role, setRole]     = useState<UserRole>('BUYER')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+
+  async function handleConfirm() {
+    if (!pendingToken) { router.push('/'); return }
+    setError(null)
+    setLoading(true)
+    const result = await completeGoogleAuth(pendingToken, role)
+    setLoading(false)
+    if (!result.ok) { setError(result.error); return }
+    router.push('/')
+  }
 
   return (
     <div className="auth-form">
@@ -47,12 +64,20 @@ export function RoleSelector() {
         {ROLE_DESCRIPTIONS[role]}
       </p>
 
+      {error && (
+        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
+          {error}
+        </p>
+      )}
+
       <button
         className="btn-pill reveal d4"
         style={{ width: '100%', marginTop: 4 }}
-        onClick={() => router.push('/')}
+        disabled={loading}
+        onClick={handleConfirm}
       >
-        Continuar como {role === 'SELLER' ? 'Vendedor' : 'Comprador'} <span aria-hidden>→</span>
+        {loading ? 'Configurando…' : `Continuar como ${role === 'SELLER' ? 'Vendedor' : 'Comprador'}`}{' '}
+        <span aria-hidden>→</span>
       </button>
     </div>
   )

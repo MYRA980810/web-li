@@ -251,6 +251,43 @@ export async function resetPassword(payload: ResetPasswordInput): Promise<Action
   return { ok: true }
 }
 
+export type CompleteGoogleAuthResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+export async function completeGoogleAuth(
+  pendingToken: string,
+  role: 'SELLER' | 'BUYER',
+): Promise<CompleteGoogleAuthResult> {
+  let res: Response
+  try {
+    res = await fetch(`${API}/api/auth/oauth2/complete`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ pendingToken, role }),
+    })
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = await res.json()
+  const cookieStore = await cookies()
+  cookieStore.set('session', data.accessToken, {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path:     '/',
+    maxAge:   60 * 60 * 24 * 7,
+  })
+
+  return { ok: true }
+}
+
 export async function resendOtp(pendingToken: string): Promise<ActionResult> {
   let res: Response
   try {

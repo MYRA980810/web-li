@@ -1,157 +1,32 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { VerifyLoader } from '../../verify-otp/_components/VerifyLoader'
-import { VerifyError } from '../../verify-otp/_components/VerifyError'
-import { verifyResetCode, resendOtp } from '@/lib/actions'
-
-const OTP_LENGTH    = 6
-const RESEND_SECONDS = 59
-
-type Status = 'idle' | 'verifying' | 'error'
-type VerificationChannel = 'EMAIL' | 'SMS' | 'WHATSAPP'
+import { OtpFormBase } from '@/app/(auth)/_components/OtpFormBase'
+import { verifyResetCode } from '@/lib/actions'
+import type { VerificationChannel } from '@/lib/actions'
 
 type Props = {
   pendingToken: string
-  channel:      VerificationChannel
-}
-
-const CHANNEL_LABEL: Record<VerificationChannel, string> = {
-  EMAIL:    'correo electrónico',
-  SMS:      'teléfono',
-  WHATSAPP: 'WhatsApp',
+  channel: VerificationChannel
 }
 
 export function VerifyResetCodeForm({ pendingToken, channel }: Props) {
-  const [digits, setDigits]     = useState<string[]>(Array(OTP_LENGTH).fill(''))
-  const [seconds, setSeconds]   = useState(RESEND_SECONDS)
-  const [canResend, setCanResend] = useState(false)
-  const [status, setStatus]     = useState<Status>('idle')
-  const refs   = useRef<Array<HTMLInputElement | null>>(Array(OTP_LENGTH).fill(null))
   const router = useRouter()
 
-  useEffect(() => {
-    if (seconds <= 0) { setCanResend(true); return }
-    const id = setTimeout(() => setSeconds(s => s - 1), 1000)
-    return () => clearTimeout(id)
-  }, [seconds])
-
-  function handleChange(i: number, val: string) {
-    const ch = val.replace(/\D/g, '').slice(-1)
-    const next = [...digits]
-    next[i] = ch
-    setDigits(next)
-    if (ch && i < OTP_LENGTH - 1) refs.current[i + 1]?.focus()
-  }
-
-  function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Backspace' && !digits[i] && i > 0) refs.current[i - 1]?.focus()
-  }
-
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH)
-    const next = [...digits]
-    for (let i = 0; i < pasted.length; i++) next[i] = pasted[i]
-    setDigits(next)
-    refs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus()
-  }
-
-  async function handleResend() {
-    await resendOtp(pendingToken)
-    setSeconds(RESEND_SECONDS)
-    setCanResend(false)
-    setDigits(Array(OTP_LENGTH).fill(''))
-    refs.current[0]?.focus()
-  }
-
-  const handleVerify = useCallback(async () => {
-    if (!digits.every(d => d !== '')) return
-    setStatus('verifying')
-    const result = await verifyResetCode({ pendingToken, code: digits.join('') })
-    if (!result.ok) { setStatus('error'); return }
+  const handleVerify = useCallback(async (code: string) => {
+    const result = await verifyResetCode({ pendingToken, code })
+    if (!result.ok) return false
     router.push(`/reset-password?token=${encodeURIComponent(result.resetToken)}`)
-  }, [digits, pendingToken, router])
-
-  function handleRetry() {
-    setStatus('idle')
-    setDigits(Array(OTP_LENGTH).fill(''))
-    setTimeout(() => refs.current[0]?.focus(), 50)
-  }
-
-  const isComplete = digits.every(d => d !== '')
-  const timer = `0:${String(seconds).padStart(2, '0')}`
+    return true
+  }, [pendingToken, router])
 
   return (
-    <>
-      {status === 'verifying' && <VerifyLoader />}
-      {status === 'error'     && <VerifyError onRetry={handleRetry} />}
-
-      <div className="auth-form" style={{ alignItems: 'center', textAlign: 'center', maxWidth: 400 }}>
-        <div className="reveal d1">
-          <p className="eyebrow" style={{ marginBottom: 16 }}>Seguridad</p>
-          <h2 className="display" style={{ fontSize: 38, lineHeight: 1 }}>
-            Verificá <em>tu código</em>
-          </h2>
-          <p className="lead" style={{ marginTop: 14, fontSize: 15 }}>
-            Ingresá el código de 6 dígitos enviado a tu{' '}
-            {CHANNEL_LABEL[channel]}.
-          </p>
-        </div>
-
-        <div className="otp-row reveal d2" role="group" aria-label="Código de verificación">
-          {digits.map((d, i) => (
-            <input
-              key={i}
-              ref={el => { refs.current[i] = el }}
-              className={`otp-box${d ? ' filled' : ''}`}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={d}
-              autoFocus={i === 0}
-              autoComplete="one-time-code"
-              aria-label={`Dígito ${i + 1} de ${OTP_LENGTH}`}
-              onChange={e => handleChange(i, e.target.value)}
-              onKeyDown={e => handleKeyDown(i, e)}
-              onPaste={handlePaste}
-            />
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className="btn-pill reveal d3"
-          style={{ width: '100%' }}
-          disabled={!isComplete}
-          aria-disabled={!isComplete}
-          onClick={handleVerify}
-        >
-          Verificar código <span aria-hidden>→</span>
-        </button>
-
-        <div
-          className="reveal d4"
-          style={{ fontSize: 14, color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-        >
-          <span>¿No recibiste el código?</span>
-          {canResend ? (
-            <button
-              type="button"
-              onClick={handleResend}
-              style={{ fontSize: 14, color: 'var(--brand-400)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-            >
-              Reenviar código
-            </button>
-          ) : (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)' }}>
-              <span aria-hidden style={{ fontSize: 15 }}>⏱</span>
-              Reenviar en {timer}
-            </span>
-          )}
-        </div>
-      </div>
-    </>
+    <OtpFormBase
+      pendingToken={pendingToken}
+      channel={channel}
+      heading={<>Verificá <em>tu código</em></>}
+      onVerify={handleVerify}
+    />
   )
 }

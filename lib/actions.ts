@@ -16,7 +16,7 @@ import {
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
-type VerificationChannel = 'EMAIL' | 'SMS' | 'WHATSAPP'
+export type VerificationChannel = 'EMAIL' | 'SMS' | 'WHATSAPP'
 
 export type RegisterResult =
   | { ok: true; pendingToken: string; channel: VerificationChannel }

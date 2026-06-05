@@ -255,6 +255,21 @@ export type CompleteGoogleAuthResult =
   | { ok: true }
   | { ok: false; error: string }
 
+export async function exchangeOAuthCode(code: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}/api/auth/oauth2/exchange`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ code }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.accessToken as string
+  } catch {
+    return null
+  }
+}
+
 export async function completeGoogleAuth(
   pendingToken: string,
   role: 'SELLER' | 'BUYER',

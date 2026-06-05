@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { RoleSelector } from './_components/RoleSelector'
 import { BrandSidePanel } from '../_components/BrandSidePanel'
+import { exchangeOAuthCode } from '@/lib/actions'
 
 export const metadata: Metadata = {
   title: 'Elegí tu rol — Livento',
@@ -10,9 +12,13 @@ export const metadata: Metadata = {
 export default async function SelectRolePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>
+  searchParams: Promise<{ code?: string }>
 }) {
-  const { token } = await searchParams
+  const { code } = await searchParams
+  if (!code) redirect('/login')
+
+  const pendingToken = await exchangeOAuthCode(code)
+  if (!pendingToken) redirect('/login?error=oauth_failed')
 
   return (
     <>
@@ -20,7 +26,7 @@ export default async function SelectRolePage({
       <div className="auth-desktop screen-enter">
         <BrandSidePanel variant="register" />
         <div className="auth-form-card glass" style={{ borderRadius: 32 }}>
-          <RoleSelector pendingToken={token} />
+          <RoleSelector pendingToken={pendingToken} />
         </div>
       </div>
 
@@ -41,7 +47,7 @@ export default async function SelectRolePage({
             </span>
             <div style={{ width: 40 }} />
           </div>
-          <RoleSelector pendingToken={token} />
+          <RoleSelector pendingToken={pendingToken} />
         </div>
       </div>
     </>

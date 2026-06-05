@@ -16,12 +16,20 @@
     "hash": "dfa1f5f6a7037bf39dc510f30b180002"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/next.config.ts": {
-    "mtime": 1779244914.3752599,
-    "hash": "9b77af189a21a7a64e4bd7a426f64176"
+    "mtime": 1780028247.3303158,
+    "hash": "6f7dbb0a73e99adf5c6e760cd293de4c"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/layout.tsx": {
     "mtime": 1779339012.7644837,
     "hash": "16638b2ec15c24e0c20dd3003cb4a7a3"
+  },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/page.tsx": {
+    "mtime": 1779776610.2191443,
+    "hash": "ea63b32716fbf053c9e24849b891a01e"
+  },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/auth/oauth-callback/route.ts": {
+    "mtime": 1780029270.2224238,
+    "hash": "9732b53692d312a7b0f250f29fcf1807"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(onboarding)/layout.tsx": {
     "mtime": 1779339375.1635487,
@@ -75,21 +83,25 @@
     "mtime": 1779403266.5383165,
     "hash": "60faf399296715e80ad15fdaefd81c1b"
   },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/_components/HomeScreen.tsx": {
+    "mtime": 1779776606.1278105,
+    "hash": "81421804cc4de254bb789b9dd2129fc9"
+  },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/layout.tsx": {
     "mtime": 1779339141.9390895,
     "hash": "170773c3d287986d42ddfbefb45d8e6b"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/google-auth/page.tsx": {
-    "mtime": 1779678982.735438,
-    "hash": "2baa3023e64e97f3cb1c171cc968b2b0"
+    "mtime": 1780028240.3014495,
+    "hash": "64f2ef6999c39a598ab4b9f279629f37"
   },
-  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/google-auth/_components/GoogleAuthLoader.tsx": {
-    "mtime": 1779678952.6936407,
-    "hash": "452ceef0c0e08b0eec3fee26cfe56adc"
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/verify-reset-code/page.tsx": {
+    "mtime": 1779856897.8651092,
+    "hash": "da00c33421ce03ccd13ca593e6d67d70"
   },
-  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/google-auth/_components/GoogleAccountPicker.tsx": {
-    "mtime": 1779678974.5478086,
-    "hash": "9b728013927571ee0fc97fced592978f"
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/verify-reset-code/_components/VerifyResetCodeForm.tsx": {
+    "mtime": 1780113721.4910939,
+    "hash": "8fd9e126e74620ec54cad1c9fb4bb516"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/verify-otp/page.tsx": {
     "mtime": 1779768050.921493,
@@ -104,20 +116,20 @@
     "hash": "97cb026730ee1258e15c864ce0a5e15e"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/verify-otp/_components/OtpForm.tsx": {
-    "mtime": 1779768073.5187795,
-    "hash": "21d8b9d4bed0df2a27f071c700caddb2"
+    "mtime": 1780113715.8854277,
+    "hash": "400ca08c0b41630090f2bfacc7fd6af3"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/verify-otp/_components/VerifySuccess.tsx": {
     "mtime": 1779546047.5519197,
     "hash": "5ec9309a8be64981fc4effd0d6c55e79"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/select-role/page.tsx": {
-    "mtime": 1779679000.3220563,
-    "hash": "33ce5464018c8daeb092adbed1b0b951"
+    "mtime": 1780028263.5483308,
+    "hash": "b79963de72f0f2c11775715096a67609"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/select-role/_components/RoleSelector.tsx": {
-    "mtime": 1779681489.3412235,
-    "hash": "0e1c57376db5aedf075b9ba17a139406"
+    "mtime": 1780028283.2085545,
+    "hash": "55698d647cbd76d2d9362c74b7710199"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/register/page.tsx": {
     "mtime": 1779339228.2565532,
@@ -128,12 +140,16 @@
     "hash": "25262689b0fbb30126cbbc1988037d68"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/_components/PasswordField.tsx": {
-    "mtime": 1779768017.396468,
-    "hash": "d0c7ce952733a83eaed58d0fd3b1ab41"
+    "mtime": 1779856982.0100524,
+    "hash": "9730c61d46b7299edcab83d631e4def9"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/_components/IdentifierField.tsx": {
     "mtime": 1779761798.7107668,
     "hash": "67043f8ec7424902e3aa9cb59475b0a9"
+  },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/_components/OtpFormBase.tsx": {
+    "mtime": 1780113709.490095,
+    "hash": "5571ebe875f02a80e20ed6cceba9e1cf"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/_components/auth-icons.tsx": {
     "mtime": 1779422345.8960335,
@@ -143,13 +159,29 @@
     "mtime": 1779339188.625746,
     "hash": "008152f4bafab65a538b84b00c6d19b3"
   },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/forgot-password/page.tsx": {
+    "mtime": 1779856871.9671376,
+    "hash": "8784b554f4796cb13bab471bae6674b8"
+  },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/forgot-password/_components/ForgotPasswordForm.tsx": {
+    "mtime": 1779856886.874198,
+    "hash": "4428cdd68a7f09f3681af5a30a331f43"
+  },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/reset-password/page.tsx": {
+    "mtime": 1779856934.1305127,
+    "hash": "71f80b56e7f84d9e6e16e65ae0bc47e0"
+  },
+  "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/reset-password/_components/ResetPasswordForm.tsx": {
+    "mtime": 1779856994.5138817,
+    "hash": "b70ab4cc36d69b0e3d2f81873f613d1e"
+  },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/login/page.tsx": {
-    "mtime": 1779339161.6847658,
-    "hash": "9f75e03027ca7838a3984f1e879d5f4a"
+    "mtime": 1780028268.0119576,
+    "hash": "713c5e23a3087ca6d6cab29aef6e62af"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/app/(auth)/login/_components/LoginForm.tsx": {
-    "mtime": 1779761806.8741467,
-    "hash": "a85cbe777cbd0348d8c0391d48c22a37"
+    "mtime": 1780028287.1901312,
+    "hash": "0335b641d1689357ef1a284ed01865f6"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/components/LiveStreamMock.tsx": {
     "mtime": 1779340623.1034334,
@@ -160,12 +192,12 @@
     "hash": "3845a2f7fae3349e0a0fd9103efc6a0b"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/lib/schemas.ts": {
-    "mtime": 1779767992.5725827,
-    "hash": "85378ac940203324fd36a7e67fb4a2e8"
+    "mtime": 1779856843.6378844,
+    "hash": "dda5d8b0097b29b3ef756074730ff4d1"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/lib/actions.ts": {
-    "mtime": 1779768005.5132656,
-    "hash": "d395eff04976abc4e21977d1beb8077b"
+    "mtime": 1780113684.4585767,
+    "hash": "e3002c3f6de78d0348614a8578a2249a"
   },
   "/Volumes/DeveloperDisk/Projects/livecomerce-web/README.md": {
     "mtime": 1777229155.6736999,

@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { type NextRequest } from 'next/server'
+import { setSessionCookie } from '@/lib/session'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -22,13 +22,6 @@ export async function GET(request: NextRequest) {
     redirect('/login?error=oauth_failed')
   }
 
-  const cookieStore = await cookies()
-  cookieStore.set('session', accessToken, {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path:     '/',
-    maxAge:   60 * 60 * 24 * 7,
-  })
+  await setSessionCookie(accessToken)
   redirect('/')
 }

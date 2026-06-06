@@ -1,6 +1,6 @@
 'use server'
 
-import { cookies } from 'next/headers'
+import { setSessionCookie } from './session'
 import {
   registerSchema,
   verifyOtpSchema,
@@ -101,14 +101,7 @@ export async function verifyOtp(
   }
 
   const data = await res.json()
-  const cookieStore = await cookies()
-  cookieStore.set('session', data.accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  })
+  await setSessionCookie(data.accessToken)
 
   return { ok: true }
 }
@@ -137,14 +130,7 @@ export async function loginUser(payload: LoginInput): Promise<ActionResult> {
   }
 
   const data = await res.json()
-  const cookieStore = await cookies()
-  cookieStore.set('session', data.accessToken, {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path:     '/',
-    maxAge:   60 * 60 * 24 * 7,
-  })
+  await setSessionCookie(data.accessToken)
 
   return { ok: true }
 }
@@ -239,14 +225,7 @@ export async function resetPassword(payload: ResetPasswordInput): Promise<Action
   }
 
   const data = await res.json()
-  const cookieStore = await cookies()
-  cookieStore.set('session', data.accessToken, {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path:     '/',
-    maxAge:   60 * 60 * 24 * 7,
-  })
+  await setSessionCookie(data.accessToken)
 
   return { ok: true }
 }
@@ -291,14 +270,7 @@ export async function completeGoogleAuth(
   }
 
   const data = await res.json()
-  const cookieStore = await cookies()
-  cookieStore.set('session', data.accessToken, {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path:     '/',
-    maxAge:   60 * 60 * 24 * 7,
-  })
+  await setSessionCookie(data.accessToken)
 
   return { ok: true }
 }

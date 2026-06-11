@@ -40,11 +40,11 @@ const COMMUNITY_POST = {
 }
 
 const NAV_ITEMS = [
-  { icon: '⌂', label: 'Inicio', active: true },
-  { icon: '⊙', label: 'Explorar', active: false },
-  { icon: null, label: 'Live', active: false, isLive: true },
-  { icon: '◫', label: 'Stats', active: false },
-  { icon: '◉', label: 'Perfil', active: false },
+  { icon: '🏠', label: 'Home',   active: true },
+  { icon: '🛍',  label: 'Store',  active: false },
+  { icon: null,  label: 'Live',   active: false, isLive: true },
+  { icon: '💰',  label: 'Ventas', active: false },
+  { icon: '👤',  label: 'Perfil', active: false },
 ]
 
 function BrandMark() {

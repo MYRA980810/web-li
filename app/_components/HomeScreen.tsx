@@ -13,11 +13,11 @@ const PRODUCTS = [
 ]
 
 const NAV_ITEMS = [
-  { icon: '⌂', label: 'Inicio', active: true },
-  { icon: '⊙', label: 'Buscar', active: false },
-  { icon: null, label: 'Live', active: false, isLive: true },
-  { icon: '⊡', label: 'Bolsa', active: false },
-  { icon: '◉', label: 'Perfil', active: false },
+  { icon: '🏠', label: 'Inicio', active: true },
+  { icon: '🔍', label: 'Buscar', active: false },
+  { icon: null,  label: 'Live',   active: false, isLive: true },
+  { icon: '🛒',  label: 'Bolsa',  active: false },
+  { icon: '👤',  label: 'Perfil', active: false },
 ]
 
 const ACTIVE_STREAMS = [

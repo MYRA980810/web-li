@@ -34,13 +34,13 @@ export function ResetPasswordForm({ resetToken }: Props) {
   }
 
   return (
-    <div className="auth-form">
+    <div className="flex flex-col gap-5 w-full">
       <div className="reveal d1">
-        <p className="eyebrow" style={{ marginBottom: 16 }}>Seguridad</p>
-        <h2 className="display" style={{ fontSize: 38, lineHeight: 1 }}>
+        <p className="eyebrow mb-4">Seguridad</p>
+        <h2 className="display text-[38px] leading-none">
           Nueva <em>contraseña</em>
         </h2>
-        <p className="lead" style={{ marginTop: 14, fontSize: 15 }}>
+        <p className="lead mt-3.5 text-[15px]">
           Elegí una contraseña segura de al menos 8 caracteres.
         </p>
       </div>
@@ -62,17 +62,14 @@ export function ResetPasswordForm({ resetToken }: Props) {
       />
 
       {error && (
-        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
-          {error}
-        </p>
+        <p className="text-[13px] text-red-400 -mt-1">{error}</p>
       )}
 
       <button
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="btn-pill reveal d4"
-        style={{ width: '100%', marginTop: 8 }}
+        className="btn-pill reveal d4 w-full mt-2"
       >
         {loading ? 'Guardando…' : 'Guardar contraseña'} <span aria-hidden>→</span>
       </button>

@@ -12,7 +12,6 @@ export function VerifySuccess() {
   return createPortal(
     <div className="verify-result-overlay">
       <div className="verify-result-card">
-        {/* Icon */}
         <div className="verify-icon-circle success">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden>
             <path
@@ -31,30 +30,20 @@ export function VerifySuccess() {
           </svg>
         </div>
 
-        {/* Copy */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <h2 className="display" style={{ fontSize: 32, lineHeight: 1.05 }}>
+        <div className="flex flex-col gap-2.5">
+          <h2 className="display text-[32px] leading-[1.05]">
             ¡Cuenta<br /><em>verificada!</em>
           </h2>
-          <p className="lead" style={{ fontSize: 15 }}>
+          <p className="lead text-[15px]">
             Tu identidad ha sido confirmada. Ya podés acceder a tu cuenta.
           </p>
         </div>
 
-        {/* Actions */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Link
-            href="/"
-            className="btn-pill"
-            style={{ width: '100%', textDecoration: 'none' }}
-          >
+        <div className="w-full flex flex-col gap-3">
+          <Link href="/" className="btn-pill w-full no-underline">
             Ir al inicio <span aria-hidden>→</span>
           </Link>
-          <Link
-            href="/login"
-            className="btn-ghost"
-            style={{ width: '100%', textDecoration: 'none', fontSize: 14 }}
-          >
+          <Link href="/login" className="btn-ghost w-full no-underline text-[14px]">
             Volver al login
           </Link>
         </div>

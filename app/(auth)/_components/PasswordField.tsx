@@ -45,7 +45,7 @@ export function PasswordField({ autoComplete = 'current-password', className, la
           type="button"
           onClick={() => setShow((s) => !s)}
           aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-          style={{ color: 'var(--ink-3)', fontSize: 14, display: 'flex', alignItems: 'center' }}
+          className="text-(--ink-3) text-[14px] flex items-center"
         >
           {show ? <EyeOffIcon /> : <EyeIcon />}
         </button>

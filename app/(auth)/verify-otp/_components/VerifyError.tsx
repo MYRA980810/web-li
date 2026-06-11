@@ -14,7 +14,6 @@ export function VerifyError({ onRetry }: Props) {
 
   return createPortal(
     <div className="verify-loader" role="alert" aria-label="Error de verificación">
-      {/* Error ring — reutiliza la estructura del loader con variante error */}
       <div className="verify-ring-wrap">
         <div className="verify-ring-glow error" aria-hidden />
         <div className="verify-ring-track error" aria-hidden />
@@ -30,56 +29,29 @@ export function VerifyError({ onRetry }: Props) {
         </div>
       </div>
 
-      {/* Branding */}
-      <span
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontWeight: 800,
-          fontStyle: 'italic',
-          fontSize: 14,
-          letterSpacing: '0.18em',
-          color: 'var(--ink-3)',
-          textTransform: 'uppercase',
-        }}
-      >
+      <span className="font-display font-extrabold italic text-[14px] tracking-[0.18em] uppercase text-(--ink-3)">
         Livento
       </span>
 
-      {/* Copy */}
-      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <h2 className="display" style={{ fontSize: 38, lineHeight: 1 }}>
+      <div className="text-center flex flex-col gap-2.5">
+        <h2 className="display text-[38px] leading-none">
           ¡Código<br /><em>incorrecto!</em>
         </h2>
-        <p className="lead" style={{ fontSize: 15, maxWidth: 300, margin: '0 auto' }}>
+        <p className="lead text-[15px] max-w-[300px] mx-auto">
           El código ingresado no es válido o ha expirado. Por favor, verificá e intentá de nuevo.
         </p>
       </div>
 
-      {/* Actions */}
-      <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 16, padding: '0 24px' }}>
-        <button
-          type="button"
-          className="btn-pill"
-          style={{ width: '100%' }}
-          onClick={onRetry}
-        >
+      <div className="w-full max-w-[360px] flex flex-col gap-4 px-6">
+        <button type="button" className="btn-pill w-full" onClick={onRetry}>
           Volver a intentar <span aria-hidden>→</span>
         </button>
 
-        <div style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-3)' }}>
+        <div className="text-center text-[14px] text-(--ink-3)">
           ¿Necesitas ayuda?{' '}
           <button
             type="button"
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              color: 'var(--brand-400)',
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: 'pointer',
-              textDecoration: 'underline',
-            }}
+            className="text-brand-400 font-bold text-[14px] underline"
           >
             Contactar soporte
           </button>

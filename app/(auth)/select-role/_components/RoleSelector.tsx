@@ -17,9 +17,9 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 
 export function RoleSelector({ pendingToken }: Props) {
   const router = useRouter()
-  const [role, setRole]     = useState<UserRole>('BUYER')
+  const [role, setRole]       = useState<UserRole>('BUYER')
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState<string | null>(null)
+  const [error, setError]     = useState<string | null>(null)
 
   async function handleConfirm() {
     if (!pendingToken) { router.push('/'); return }
@@ -32,17 +32,17 @@ export function RoleSelector({ pendingToken }: Props) {
   }
 
   return (
-    <div className="auth-form">
+    <div className="flex flex-col gap-5 w-full">
       <div className="reveal d1">
-        <h2 className="display" style={{ fontSize: 34, lineHeight: 1.1 }}>
+        <h2 className="display text-[34px] leading-[1.1]">
           ¿Cómo vas a usar <em>Livento?</em>
         </h2>
-        <p className="lead" style={{ marginTop: 12, fontSize: 14 }}>
+        <p className="lead mt-3 text-[14px]">
           Elegí tu rol para personalizar tu experiencia.
         </p>
       </div>
 
-      <div className="reveal d2" style={{ display: 'flex', gap: 12 }}>
+      <div className="flex gap-3 reveal d2">
         {(['SELLER', 'BUYER'] as UserRole[]).map((type) => (
           <div
             key={type}
@@ -60,19 +60,16 @@ export function RoleSelector({ pendingToken }: Props) {
         ))}
       </div>
 
-      <p className="reveal d3" style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.65 }}>
+      <p className="reveal d3 text-[13px] text-(--ink-2) leading-[1.65]">
         {ROLE_DESCRIPTIONS[role]}
       </p>
 
       {error && (
-        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
-          {error}
-        </p>
+        <p className="text-[13px] text-red-400 -mt-1">{error}</p>
       )}
 
       <button
-        className="btn-pill reveal d4"
-        style={{ width: '100%', marginTop: 4 }}
+        className="btn-pill reveal d4 w-full mt-1"
         disabled={loading}
         onClick={handleConfirm}
       >

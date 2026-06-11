@@ -90,13 +90,13 @@ export function OtpFormBase({ pendingToken, channel, heading, onVerify, successO
       {status === 'success'   && successOverlay}
       {status === 'error'     && <VerifyError onRetry={handleRetry} />}
 
-      <div className="auth-form" style={{ alignItems: 'center', textAlign: 'center', maxWidth: 400 }}>
+      <div className="flex flex-col gap-5 w-full items-center text-center max-w-[400px]">
         <div className="reveal d1">
-          <p className="eyebrow" style={{ marginBottom: 16 }}>Seguridad</p>
-          <h2 className="display" style={{ fontSize: 38, lineHeight: 1 }}>
+          <p className="eyebrow mb-4">Seguridad</p>
+          <h2 className="display text-[38px] leading-none">
             {heading}
           </h2>
-          <p className="lead" style={{ marginTop: 14, fontSize: 15 }}>
+          <p className="lead mt-3.5 text-[15px]">
             Ingresá el código de 6 dígitos enviado a tu{' '}
             {CHANNEL_LABEL[channel]}.
           </p>
@@ -124,8 +124,7 @@ export function OtpFormBase({ pendingToken, channel, heading, onVerify, successO
 
         <button
           type="button"
-          className="btn-pill reveal d3"
-          style={{ width: '100%' }}
+          className="btn-pill reveal d3 w-full"
           disabled={!isComplete}
           aria-disabled={!isComplete}
           onClick={handleVerify}
@@ -133,22 +132,19 @@ export function OtpFormBase({ pendingToken, channel, heading, onVerify, successO
           Verificar código <span aria-hidden>→</span>
         </button>
 
-        <div
-          className="reveal d4"
-          style={{ fontSize: 14, color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-        >
+        <div className="reveal d4 flex flex-col items-center gap-2 text-[14px] text-(--ink-3)">
           <span>¿No recibiste el código?</span>
           {canResend ? (
             <button
               type="button"
               onClick={handleResend}
-              style={{ fontSize: 14, color: 'var(--brand-400)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+              className="text-[14px] text-brand-400 font-bold underline"
             >
               Reenviar código
             </button>
           ) : (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-2)' }}>
-              <span aria-hidden style={{ fontSize: 15 }}>⏱</span>
+            <span className="inline-flex items-center gap-1.5 text-(--ink-2)">
+              <span aria-hidden className="text-[15px]">⏱</span>
               Reenviar en {timer}
             </span>
           )}

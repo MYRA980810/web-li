@@ -28,35 +28,28 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="auth-form">
+    <div className="flex flex-col gap-5 w-full">
       <div className="reveal d1">
-        <p className="eyebrow" style={{ marginBottom: 16 }}>Seguridad</p>
-        <h2 className="display" style={{ fontSize: 38, lineHeight: 1 }}>
+        <p className="eyebrow mb-4">Seguridad</p>
+        <h2 className="display text-[38px] leading-none">
           Recuperá <em>tu contraseña</em>
         </h2>
-        <p className="lead" style={{ marginTop: 14, fontSize: 15 }}>
+        <p className="lead mt-3.5 text-[15px]">
           Ingresá tu email o teléfono y te enviaremos un código de verificación.
         </p>
       </div>
 
-      <IdentifierField
-        value={contact}
-        onChange={setContact}
-        className="reveal d2"
-      />
+      <IdentifierField value={contact} onChange={setContact} className="reveal d2" />
 
       {error && (
-        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
-          {error}
-        </p>
+        <p className="text-[13px] text-red-400 -mt-1">{error}</p>
       )}
 
       <button
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="btn-pill reveal d3"
-        style={{ width: '100%', marginTop: 8 }}
+        className="btn-pill reveal d3 w-full mt-2"
       >
         {loading ? 'Enviando…' : 'Enviar código'} <span aria-hidden>→</span>
       </button>

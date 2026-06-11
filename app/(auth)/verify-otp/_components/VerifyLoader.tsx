@@ -21,30 +21,26 @@ export function VerifyLoader() {
 
   return createPortal(
     <div className="verify-loader" role="status" aria-label="Verificando código">
-      {/* Spinner ring */}
       <div className="verify-ring-wrap">
         <div className="verify-ring-glow" aria-hidden />
         <div className="verify-ring-track" aria-hidden />
         <div className="verify-spinner" aria-hidden />
         <div className="verify-ring-inner">
-          <span aria-hidden style={{ fontSize: 26, lineHeight: 1 }}>🔐</span>
+          <span aria-hidden className="text-[26px] leading-none">🔐</span>
         </div>
       </div>
 
-      {/* Copy */}
-      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <h2 className="display" style={{ fontSize: 36, lineHeight: 1.1 }}>
+      <div className="text-center flex flex-col gap-2.5">
+        <h2 className="display text-[36px] leading-[1.1]">
           Verificando tu<br /><em>código…</em>
         </h2>
-        <p className="lead" style={{ fontSize: 15 }}>
+        <p className="lead text-[15px]">
           Esto solo tomará un momento
         </p>
       </div>
 
-      {/* Animated dash */}
       <div className="verify-progress-dash" aria-hidden />
 
-      {/* Step indicators */}
       <div className="verify-steps" aria-hidden>
         <span className={`verify-step${step >= 1 ? ' active' : ''}`}>
           Securing session

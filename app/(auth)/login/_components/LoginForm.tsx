@@ -43,19 +43,18 @@ export function LoginForm({ oauthError }: Props) {
   }
 
   return (
-    <div className="auth-form">
+    <div className="flex flex-col gap-5 w-full">
       <div className="reveal d1">
-        <h2 className="display" style={{ fontSize: 38, marginTop: 0, lineHeight: 1 }}>
+        <h2 className="display text-[38px] mt-0 leading-none">
           Bienvenido <em>de nuevo</em>
         </h2>
-        <p className="lead" style={{ marginTop: 12, fontSize: 15 }}>
+        <p className="lead mt-3 text-[15px]">
           Inicia sesión para volver al live.
         </p>
       </div>
 
       <button
         className="oauth-btn reveal d2"
-        style={{ width: '100%', padding: '16px 20px' }}
         onClick={() => router.push('/google-auth')}
       >
         <span
@@ -67,11 +66,8 @@ export function LoginForm({ oauthError }: Props) {
         Continuar con Google
       </button>
 
-      <button className="oauth-btn reveal d2" style={{ width: '100%', padding: '16px 20px' }}>
-        <span
-          className="oauth-icon"
-          style={{ background: '#fff', color: '#000' }}
-        >
+      <button className="oauth-btn reveal d2">
+        <span className="oauth-icon" style={{ background: '#fff', color: '#000' }}>
           <AppleIcon />
         </span>
         Continuar con Apple
@@ -79,11 +75,7 @@ export function LoginForm({ oauthError }: Props) {
 
       <div className="divider reveal d2">o entra con</div>
 
-      <IdentifierField
-        value={identifier}
-        onChange={setIdentifier}
-        className="reveal d3"
-      />
+      <IdentifierField value={identifier} onChange={setIdentifier} className="reveal d3" />
 
       <PasswordField
         className="reveal d4"
@@ -94,34 +86,27 @@ export function LoginForm({ oauthError }: Props) {
 
       <Link
         href="/forgot-password"
-        className="reveal d4"
-        style={{ fontSize: 13, color: 'var(--brand-400)', alignSelf: 'flex-end', marginTop: -8 }}
+        className="reveal d4 self-end text-[13px] text-brand-400 no-underline"
       >
         Forgot password?
       </Link>
 
       {error && (
-        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
-          {error}
-        </p>
+        <p className="text-[13px] text-red-400 -mt-1">{error}</p>
       )}
 
       <button
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="btn-pill reveal d4"
-        style={{ width: '100%', marginTop: 8 }}
+        className="btn-pill reveal d4 w-full mt-2"
       >
         {loading ? 'Iniciando sesión…' : 'Continuar'} <span aria-hidden>→</span>
       </button>
 
-      <div className="reveal d5" style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', marginTop: 4 }}>
+      <div className="reveal d5 text-center text-[14px] text-(--ink-2) mt-1">
         ¿No tienes cuenta?{' '}
-        <Link
-          href="/register"
-          style={{ color: 'var(--brand-400)', fontWeight: 700, textDecoration: 'underline' }}
-        >
+        <Link href="/register" className="text-brand-400 font-bold underline">
           Regístrate
         </Link>
       </div>

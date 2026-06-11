@@ -20,13 +20,13 @@ function AppleIcon() {
 }
 
 export function RegisterForm() {
-  const [role, setRole]           = useState<UserType>('BUYER')
+  const [role, setRole]             = useState<UserType>('BUYER')
   const [identifier, setIdentifier] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName]   = useState('')
-  const [password, setPassword]   = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState<string | null>(null)
+  const [firstName, setFirstName]   = useState('')
+  const [lastName, setLastName]     = useState('')
+  const [password, setPassword]     = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
   const router = useRouter()
 
   async function handleSubmit() {
@@ -42,27 +42,24 @@ export function RegisterForm() {
     setLoading(true)
     const result = await registerUser(parsed.data)
     setLoading(false)
-    if (!result.ok) {
-      setError(result.error)
-      return
-    }
+    if (!result.ok) { setError(result.error); return }
     router.push(
       `/verify-otp?token=${encodeURIComponent(result.pendingToken)}&channel=${result.channel}`,
     )
   }
 
   return (
-    <div className="auth-form">
+    <div className="flex flex-col gap-5 w-full">
       <div className="reveal d1">
-        <h2 className="display" style={{ fontSize: 38, lineHeight: 1 }}>
+        <h2 className="display text-[38px] leading-none">
           Crea <em>tu cuenta</em>
         </h2>
-        <p className="lead" style={{ marginTop: 12, fontSize: 14, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+        <p className="mt-3 text-[11px] font-bold tracking-[0.18em] uppercase text-(--ink-3)">
           Únete a la energía en vivo
         </p>
       </div>
 
-      <div className="reveal d2" style={{ display: 'flex', gap: 12 }}>
+      <div className="flex gap-3 reveal d2">
         {(['SELLER', 'BUYER'] as UserType[]).map((type) => (
           <div
             key={type}
@@ -106,45 +103,33 @@ export function RegisterForm() {
         </div>
       </div>
 
-      <IdentifierField
-        value={identifier}
-        onChange={setIdentifier}
-        className="reveal d3"
-      />
+      <IdentifierField value={identifier} onChange={setIdentifier} className="reveal d3" />
 
-      <PasswordField
-        className="reveal d4"
-        autoComplete="new-password"
-        value={password}
-        onChange={setPassword}
-      />
+      <PasswordField className="reveal d4" autoComplete="new-password" value={password} onChange={setPassword} />
 
       {error && (
-        <p style={{ fontSize: 13, color: 'var(--error, #ef4444)', marginTop: -4 }}>
-          {error}
-        </p>
+        <p className="text-[13px] text-red-400 -mt-1">{error}</p>
       )}
 
       <button
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="btn-pill reveal d4"
-        style={{ width: '100%' }}
+        className="btn-pill reveal d4 w-full"
       >
         {loading ? 'Creando cuenta…' : 'Crear cuenta'} <span aria-hidden>→</span>
       </button>
 
       <div className="divider reveal d5">o continúa con</div>
 
-      <div className="oauth-row reveal d5">
-        <button type="button" className="oauth-btn" onClick={() => router.push('/google-auth')}>
+      <div className="flex gap-3 reveal d5">
+        <button type="button" className="oauth-btn flex-1" onClick={() => router.push('/google-auth')}>
           <span className="oauth-icon" style={{ background: 'linear-gradient(135deg,#4285F4,#34A853,#FBBC05,#EA4335)', color: '#fff' }}>
             <GoogleIcon />
           </span>
           Google
         </button>
-        <button type="button" className="oauth-btn">
+        <button type="button" className="oauth-btn flex-1">
           <span className="oauth-icon" style={{ background: '#fff', color: '#000' }}>
             <AppleIcon />
           </span>
@@ -152,12 +137,9 @@ export function RegisterForm() {
         </button>
       </div>
 
-      <div className="reveal d5" style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', marginTop: 6 }}>
+      <div className="reveal d5 text-center text-[14px] text-(--ink-2) mt-1.5">
         ¿Ya tienes cuenta?{' '}
-        <Link
-          href="/login"
-          style={{ color: 'var(--brand-400)', fontWeight: 700, textDecoration: 'underline' }}
-        >
+        <Link href="/login" className="text-brand-400 font-bold underline">
           Inicia sesión
         </Link>
       </div>

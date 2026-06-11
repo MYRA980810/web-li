@@ -391,17 +391,26 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) { ... }
 
 ## Styling Pattern (mandatory)
 
+> **This rule applies to every new UI section, component, and screen.** No exceptions.
+
 Three layers, strictly separated:
 
 | Layer | What goes here | Example |
 |---|---|---|
 | **Tailwind** | Layout, spacing, typography, flexbox, grid, system colors | `flex items-center gap-3 text-brand-400` |
-| **`globals.css` classes** | Complex visual effects: multi-stop gradients, `filter`, `backdrop-filter`, `box-shadow`, `clip-path` | `.shop-bg`, `.chat-figure`, `.slide-discover-product` |
-| **Inline `style`** | Dynamic runtime values only — props that change at runtime | `style={{ fontSize: size }}` |
+| **`globals.css` classes** | Complex visual effects: multi-stop gradients, `filter`, `backdrop-filter`, `box-shadow`, animations, keyframes | `.shop-bg`, `.chat-figure`, `.reveal`, `.screen-enter` |
+| **Inline `style`** | Dynamic runtime values ONLY — values that change at runtime based on props/state | `style={{ width: progress + '%' }}` |
 
 ### Rules
 
-**Never** write inline styles for static layout — use Tailwind.
+**Never** write inline styles for static layout — use Tailwind:
+```tsx
+// ✗
+<div style={{ display: 'flex', alignItems: 'center', marginTop: 24 }} />
+
+// ✓
+<div className="flex items-center mt-6" />
+```
 
 **Never** use Tailwind arbitrary values for complex gradients — define a semantic CSS class in `globals.css` instead:
 ```tsx
@@ -412,6 +421,12 @@ Three layers, strictly separated:
 <div className="shop-bg" />
 ```
 
+**Box shadows that are unique to one element** can use Tailwind arbitrary values — no need to create a globals.css class:
+```tsx
+// ✓ acceptable for one-off shadows
+<div className="shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6),0_0_80px_-20px_rgba(255,31,135,0.3)]" />
+```
+
 **CSS variables from the design system** use Tailwind v4 canonical syntax — not `[var(...)]`:
 ```tsx
 // ✗ v3 style
@@ -419,6 +434,12 @@ Three layers, strictly separated:
 
 // ✓ v4 canonical
 <p className="text-(--ink-2)" />
+```
+
+**Borders and backgrounds using CSS vars not in `@theme`** are the only valid static inline styles:
+```tsx
+// ✓ acceptable — var(--line-strong) is not in @theme
+<div style={{ border: '1px solid var(--line-strong)' }} />
 ```
 
 **When adding a new CSS class to `globals.css`**, name it semantically (what it *is*, not what it looks like):

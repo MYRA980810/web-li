@@ -80,7 +80,7 @@ function SellerHeroCard() {
           Nuevos Equipos<br />
           <em className="grad-text not-italic">Sonic Pulse</em>
         </h2>
-        <p className="text-[13px] text-(--ink-2) leading-[1.5] mt-1.5">
+        <p className="text-[13px] text-(--ink-2) leading-normal mt-1.5">
           Disponible para venta desde hoy · Stock limitado
         </p>
         <div className="flex gap-2.5 mt-4.5">
@@ -97,7 +97,7 @@ function NewsPromoGrid() {
     <div className="grid grid-cols-2 gap-3 mt-3">
       {NEWS_PROMOS.map((item) => (
         <div key={item.id} className="seller-news-card">
-          <div className="h-[100px] w-full" style={{ background: item.gradient }} />
+          <div className="h-25 w-full" style={{ background: item.gradient }} />
           <div className="p-3 flex flex-col gap-2">
             <span className="seller-news-tag">{item.tag}</span>
             <p className="text-[13px] font-semibold text-(--ink-0) leading-snug">{item.title}</p>
@@ -112,8 +112,8 @@ function TopProductsRow() {
   return (
     <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-4 pt-1">
       {TOP_PRODUCTS.map((p) => (
-        <div key={p.id} className="product-card shrink-0 w-[140px]">
-          <div className="relative h-[120px] flex items-center justify-center" style={{ background: p.bg }}>
+        <div key={p.id} className="product-card shrink-0 w-35">
+          <div className="relative h-30 flex items-center justify-center" style={{ background: p.bg }}>
             <span className="text-[32px] drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">{p.emoji}</span>
           </div>
           <div className="px-3 pb-3 pt-2 flex flex-col gap-1">

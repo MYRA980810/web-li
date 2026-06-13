@@ -1,5 +1,7 @@
 import { StockScreen } from './_components/StockScreen'
+import { getMyProducts } from '@/lib/productActions'
 
-export default function StockPage() {
-  return <StockScreen />
+export default async function StockPage() {
+  const products = await getMyProducts()
+  return <StockScreen products={products} />
 }

@@ -1,58 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
-
-type StockProduct = {
-  id: string
-  name: string
-  price: number
-  currency: string
-  stock: number
-  isLow: boolean
-  emoji: string
-  bg: string
-}
-
-const MOCK_PRODUCTS: StockProduct[] = [
-  {
-    id: 'p1',
-    name: 'Reloj Inteligente Pro',
-    price: 1299.00,
-    currency: 'MXN',
-    stock: 15,
-    isLow: false,
-    emoji: '⌚',
-    bg: 'radial-gradient(ellipse at 50% 40%, #0e1e2e, #06090f)',
-  },
-  {
-    id: 'p2',
-    name: 'Audífonos Wireless Noise Cancelling',
-    price: 850.00,
-    currency: 'MXN',
-    stock: 8,
-    isLow: false,
-    emoji: '🎧',
-    bg: 'radial-gradient(ellipse at 50% 40%, #10102a, #060610)',
-  },
-  {
-    id: 'p3',
-    name: 'Tenis Deportivos Speed',
-    price: 2100.00,
-    currency: 'MXN',
-    stock: 2,
-    isLow: true,
-    emoji: '👟',
-    bg: 'radial-gradient(ellipse at 50% 40%, #1e1008, #0a0604)',
-  },
-]
+import type { ProductView } from '@/lib/types'
 
 const NAV_ITEMS = [
   { icon: '🏠', label: 'Home',    active: false, href: '/home' },
   { icon: '📦', label: 'Stock',   active: true,  href: '/store/stock' },
   { icon: '📊', label: 'Ventas',  active: false, href: null },
-  { icon: '👤', label: 'Profile', active: false, href: null },
+  { icon: '👤', label: 'Perfil',  active: false, href: null },
 ]
 
 function BottomNav() {
@@ -102,26 +61,46 @@ function formatPrice(price: number, currency: string): string {
   return `$${price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
 }
 
-function ProductRow({ product }: { product: StockProduct }) {
+function getPrimaryImage(product: ProductView): string | null {
+  const primary = product.images.find((img) => img.primary)
+  return primary?.url ?? product.images[0]?.url ?? null
+}
+
+function ProductRow({ product }: { product: ProductView }) {
+  const imageUrl = getPrimaryImage(product)
+  const isLow = product.stock.totalQuantity > 0 && product.stock.totalQuantity <= 3
+
   return (
-    <div className="stock-product-item">
-      <div className="stock-product-thumb" style={{ background: product.bg }}>
-        <span className="text-[28px]">{product.emoji}</span>
+    <Link href={`/store/stock/${product.id}`} className="stock-product-item group" style={{ textDecoration: 'none' }}>
+      <div className="stock-product-thumb" style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(255,31,135,0.12), rgba(8,5,20,0.9))' }}>
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={product.name}
+            width={64}
+            height={64}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-[24px] opacity-50">📦</span>
+        )}
       </div>
       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
         <p className="text-[14px] font-semibold text-(--ink-0) leading-snug">{product.name}</p>
         <p className="text-[13px] font-bold text-brand-400">
-          {formatPrice(product.price, product.currency)}
+          {formatPrice(product.basePrice, product.currency)}
         </p>
-        <div className={`flex items-center gap-1.5 mt-0.5 ${product.isLow ? 'stock-low-warning' : 'text-(--ink-3)'}`}>
-          {product.isLow ? (
+        <div className={`flex items-center gap-1.5 mt-0.5 ${isLow ? 'stock-low-warning' : 'text-(--ink-3)'}`}>
+          {!product.active ? (
+            <span className="text-[12px] font-medium text-(--ink-3)">Inactivo</span>
+          ) : isLow ? (
             <>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 <path d="M6 1L11 10H1L6 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
                 <path d="M6 4.5v2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                 <circle cx="6" cy="8.5" r="0.5" fill="currentColor"/>
               </svg>
-              <span className="text-[12px] font-medium">{product.stock} unidades (Stock bajo)</span>
+              <span className="text-[12px] font-medium">{product.stock.totalQuantity} unidades (Stock bajo)</span>
             </>
           ) : (
             <>
@@ -129,23 +108,41 @@ function ProductRow({ product }: { product: StockProduct }) {
                 <rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
                 <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
               </svg>
-              <span className="text-[12px] font-medium">{product.stock} unidades en stock</span>
+              <span className="text-[12px] font-medium">{product.stock.totalQuantity} unidades en stock</span>
             </>
           )}
         </div>
       </div>
-      <button
-        className="text-(--ink-3) hover:text-(--ink-1) transition-colors flex-shrink-0 px-1 text-[20px] leading-none"
-        aria-label="Opciones"
-      >
-        ⋮
-      </button>
+      <span className="text-(--ink-3) group-hover:text-(--ink-1) transition-colors flex-shrink-0 px-1 text-[16px] leading-none">
+        ›
+      </span>
+    </Link>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-6 py-12 text-center">
+      <div className="stock-empty-icon">
+        <span className="text-[40px]">📦</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="text-[16px] font-semibold text-(--ink-0)">Tu stock está vacío</p>
+        <p className="text-[13px] text-(--ink-3) leading-relaxed max-w-xs mx-auto">
+          Agregá tu primer producto y empezá a vender en tu próximo Live.
+        </p>
+      </div>
     </div>
   )
 }
 
-function StockContent() {
-  const totalUnits = MOCK_PRODUCTS.reduce((sum, p) => sum + p.stock, 0)
+function StockContent({ products }: { products: ProductView[] }) {
+  const [search, setSearch] = useState('')
+  const totalUnits = products.reduce((sum, p) => sum + p.stock.totalQuantity, 0)
+
+  const filtered = search.trim()
+    ? products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+    : products
 
   return (
     <div className="flex flex-col gap-4">
@@ -155,6 +152,8 @@ function StockContent() {
           type="search"
           className="stock-search"
           placeholder="Buscar productos..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
@@ -166,16 +165,26 @@ function StockContent() {
         <span className="stock-count-badge">{totalUnits} UNIDADES</span>
       </div>
 
-      <div className="flex flex-col">
-        {MOCK_PRODUCTS.map((p) => (
-          <ProductRow key={p.id} product={p} />
-        ))}
-      </div>
+      {products.length === 0 ? (
+        <EmptyState />
+      ) : filtered.length === 0 ? (
+        <p className="text-[13px] text-(--ink-3) text-center py-6">
+          Sin resultados para &quot;{search}&quot;
+        </p>
+      ) : (
+        <div className="flex flex-col">
+          {filtered.map((p) => (
+            <ProductRow key={p.id} product={p} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-export function StockScreen() {
+type Props = { products: ProductView[] }
+
+export function StockScreen({ products }: Props) {
   const router = useRouter()
 
   return (
@@ -185,13 +194,9 @@ export function StockScreen() {
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
         <div className="store-back-header">
-          <button
-            className="store-back-btn text-brand-400"
-            onClick={() => router.back()}
-            aria-label="Volver"
-          >
+          <Link href="/store" className="store-back-btn text-brand-400" aria-label="Volver">
             ←
-          </button>
+          </Link>
           <span className="absolute inset-0 flex items-center justify-center font-display font-bold text-[15px] text-(--ink-0) tracking-[0.06em] uppercase pointer-events-none">
             Mi Stock
           </span>
@@ -201,7 +206,7 @@ export function StockScreen() {
         </div>
 
         <div className="px-5 pt-5 pb-2 reveal d1">
-          <StockContent />
+          <StockContent products={products} />
         </div>
 
         <button
@@ -221,12 +226,12 @@ export function StockScreen() {
       {/* ===== DESKTOP ===== */}
       <div className="hidden lg:flex flex-col stage screen-enter">
         <div className="sticky top-0 z-20 flex items-center justify-between px-12 py-5 border-b border-(--line) bg-(--bg-0)/85 backdrop-blur-xl">
-          <button
+          <Link
+            href="/store"
             className="flex items-center gap-2 text-[14px] font-semibold text-brand-400 hover:text-brand-300 transition-colors"
-            onClick={() => router.back()}
           >
             ← Volver
-          </button>
+          </Link>
           <span className="font-display font-bold text-[15px] text-(--ink-0) tracking-[0.06em] uppercase">
             Mi Stock
           </span>
@@ -237,7 +242,7 @@ export function StockScreen() {
 
         <div className="flex items-start justify-center py-10 px-8">
           <div className="w-full max-w-md">
-            <StockContent />
+            <StockContent products={products} />
           </div>
         </div>
       </div>

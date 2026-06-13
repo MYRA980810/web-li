@@ -73,7 +73,11 @@ function ProductRow({ product }: { product: ProductItem }) {
   const imgUrl   = primaryImage(product)
 
   return (
-    <div className="stock-product-item">
+    <Link
+      href={`/store/stock/${product.id}`}
+      className="stock-product-item group"
+      style={{ textDecoration: 'none' }}
+    >
       <div className="stock-product-thumb" style={{ background: 'var(--bg-2)' }}>
         {imgUrl ? (
           <Image
@@ -126,13 +130,10 @@ function ProductRow({ product }: { product: ProductItem }) {
         </div>
       </div>
 
-      <button
-        className="text-(--ink-3) hover:text-(--ink-1) transition-colors shrink-0 px-1 text-[20px] leading-none"
-        aria-label="Opciones"
-      >
-        ⋮
-      </button>
-    </div>
+      <span className="text-(--ink-3) group-hover:text-(--ink-1) transition-colors shrink-0 px-1 text-[16px] leading-none">
+        ›
+      </span>
+    </Link>
   )
 }
 
@@ -235,7 +236,7 @@ export function SellerStoreDashboard({ store, products }: Props) {
           <span className="font-display font-bold text-[16px] text-(--ink-0) tracking-[-0.02em]">
             MI STOCK
           </span>
-          <button className="home-nav-icon" aria-label="Configuración de tienda">⚙️</button>
+          <Link href="/store/info" className="home-nav-icon" aria-label="Perfil de tienda">⚙️</Link>
         </div>
 
         <div className="px-5 pt-5 pb-2 flex flex-col gap-4 reveal d1">
@@ -258,7 +259,7 @@ export function SellerStoreDashboard({ store, products }: Props) {
           <span className="font-display font-bold text-[16px] text-(--ink-0) tracking-[-0.02em]">
             MI STOCK
           </span>
-          <button className="home-nav-icon" aria-label="Configuración de tienda">⚙️</button>
+          <Link href="/store/info" className="home-nav-icon" aria-label="Perfil de tienda">⚙️</Link>
         </div>
 
         <div className="flex items-start justify-center py-10 px-8">

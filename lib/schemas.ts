@@ -77,3 +77,19 @@ export const createProductSchema = z.object({
 })
 
 export type CreateProductInput = z.infer<typeof createProductSchema>
+
+export const updateProductSchema = z.object({
+  name:            z.string().min(1, 'El nombre es requerido').max(255),
+  categoryId:      z.string().uuid().optional(),
+  description:     z.string().max(2000).optional(),
+  basePrice:       z.coerce
+                     .number({ message: 'El precio debe ser un número' })
+                     .min(0.01, 'El precio debe ser mayor a 0'),
+  currency:        z.string().max(3).default('MXN'),
+  // additionalStock: amount to ADD to existing stock (backend @Min(1), only sent if > 0)
+  additionalStock: z.coerce.number().int().min(0).default(0),
+  // wantsDeactivate: triggers PATCH /api/products/{id}/deactivate (no reactivate endpoint yet)
+  wantsDeactivate: z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false),
+})
+
+export type UpdateProductInput = z.infer<typeof updateProductSchema>

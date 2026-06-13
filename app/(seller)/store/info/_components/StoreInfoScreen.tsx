@@ -176,9 +176,7 @@ export function StoreInfoScreen({ store }: Props) {
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
         <div className="store-back-header">
-          <Link href="/store" className="store-back-btn" aria-label="Volver">
-            ←
-          </Link>
+          <Link href="/store" className="store-back-btn" aria-label="Volver" />
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-[9px] font-bold tracking-[0.20em] text-(--ink-3) uppercase">
               Mi Tienda
@@ -205,7 +203,7 @@ export function StoreInfoScreen({ store }: Props) {
             href="/store"
             className="flex items-center gap-2 text-[14px] font-semibold text-brand-400 hover:text-brand-300 transition-colors"
           >
-            ← Volver
+            Volver
           </Link>
           <div className="flex flex-col items-center">
             <span className="text-[9px] font-bold tracking-[0.20em] text-(--ink-3) uppercase">Mi Tienda</span>

@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createStoreSchema, type CreateStoreInput } from './schemas'
+import { createStoreSchema, type CreateStoreInput, updateStoreSchema, type UpdateStoreInput } from './schemas'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -98,4 +98,69 @@ export async function createStore(payload: CreateStoreInput): Promise<CreateStor
 
   const store = await res.json()
   return { ok: true, store: store as StoreResponse }
+}
+
+export type UpdateStoreResult =
+  | { ok: true; store: StoreResponse }
+  | { ok: false; error: string }
+
+export async function updateStore(input: UpdateStoreInput): Promise<UpdateStoreResult> {
+  const parsed = updateStoreSchema.safeParse(input)
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+    return { ok: false, error: first ?? 'Datos inválidos' }
+  }
+
+  const cookieStore = await cookies()
+  const token = cookieStore.get('session')?.value
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  let res: Response
+  try {
+    res = await fetch(`${API}/api/stores/me`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(parsed.data),
+    })
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const store = await res.json()
+  return { ok: true, store: store as StoreResponse }
+}
+
+export async function setStoreActive(active: boolean): Promise<{ ok: boolean; error?: string }> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('session')?.value
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  const endpoint = active
+    ? `${API}/api/stores/me/reactivate`
+    : `${API}/api/stores/me/deactivate`
+
+  let res: Response
+  try {
+    res = await fetch(endpoint, {
+      method: active ? 'POST' : 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  return { ok: true }
 }

@@ -65,6 +65,14 @@ export const createStoreSchema = z.object({
 
 export type CreateStoreInput = z.infer<typeof createStoreSchema>
 
+export const updateStoreSchema = z.object({
+  name:        z.string().min(1, 'El nombre es requerido').max(255),
+  description: z.string().max(2000, 'Máximo 2000 caracteres').optional(),
+  logoUrl:     z.string().url('URL de logo inválida').max(500).optional(),
+})
+
+export type UpdateStoreInput = z.infer<typeof updateStoreSchema>
+
 export const createProductSchema = z.object({
   name:        z.string().min(1, 'El nombre es requerido').max(255),
   categoryId:  z.string().uuid('Seleccioná una categoría válida'),

@@ -307,3 +307,28 @@ export async function updateProduct(
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
+
+export type DeactivateProductResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+export async function deactivateProduct(productId: string): Promise<DeactivateProductResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/products/${productId}/deactivate`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
+
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}

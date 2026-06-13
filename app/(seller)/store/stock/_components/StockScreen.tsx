@@ -8,17 +8,20 @@ import { Ambient } from '@/components/Ambient'
 import type { ProductView } from '@/lib/types'
 
 const NAV_ITEMS = [
-  { icon: '🏠', label: 'Home',    active: false, href: '/home' },
-  { icon: '📦', label: 'Stock',   active: true,  href: '/store/stock' },
-  { icon: '📊', label: 'Ventas',  active: false, href: null },
-  { icon: '👤', label: 'Perfil',  active: false, href: null },
+  { icon: '🏠', label: 'Home',   active: false, href: '/home' },
+  { icon: '🛍',  label: 'Store',  active: true,  href: '/store' },
+  { icon: null,  label: 'Live',   active: false, isLive: true  },
+  { icon: '💰',  label: 'Ventas', active: false, href: null },
+  { icon: '👤',  label: 'Perfil', active: false, href: null },
 ]
 
 function BottomNav() {
   return (
     <nav className="bottom-nav">
       {NAV_ITEMS.map((item) =>
-        item.href ? (
+        item.isLive ? (
+          <button key="live" className="bottom-nav-live" aria-label="Live">⚡</button>
+        ) : item.href ? (
           <Link
             key={item.label}
             href={item.href}

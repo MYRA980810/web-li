@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 
 const NAV_ITEMS = [
@@ -43,8 +42,7 @@ function BottomNav() {
   )
 }
 
-function SuccessContent({ productId }: { productId: string }) {
-  const router = useRouter()
+function SuccessContent() {
   return (
     <div className="flex flex-col items-center gap-6 text-center">
       <div className="store-success-circle">
@@ -60,63 +58,42 @@ function SuccessContent({ productId }: { productId: string }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <h1 className="font-display font-extrabold text-[28px] leading-tight tracking-[-0.03em] text-(--ink-0)">
-          ¡Cambios<br />Guardados!
+        <h1 className="font-display font-extrabold text-[32px] leading-tight tracking-[-0.03em] text-(--ink-0)">
+          ¡Producto<br />Eliminado!
         </h1>
         <p className="text-[14px] text-(--ink-2) leading-relaxed max-w-xs mx-auto">
-          La información del producto ha sido actualizada correctamente en tu stock.
+          El producto ha sido removido exitosamente de tu inventario. Esta
+          acción no se puede deshacer.
         </p>
       </div>
 
-      <div className="flex flex-col gap-3 w-full">
-        <button
-          onClick={() => router.replace(`/store/stock/${productId}`)}
-          className="live-launch-btn w-full justify-center text-[14px]"
-        >
-          Volver al Detalle
-        </button>
-        <Link
-          href="/store/stock"
-          className="btn-ghost w-full justify-center text-[13px] tracking-[0.06em] uppercase"
-        >
-          Ir al Stock
-        </Link>
-      </div>
-
-      {/* Sync indicator */}
-      <div className="edit-success-sync w-full">
-        <div
-          className="w-8 h-8 rounded-[var(--r-md)] flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(255,31,135,0.10)', border: '1px solid rgba(255,31,135,0.20)' }}
-        >
-          <span className="text-[14px]">📦</span>
-        </div>
-        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-          <p className="text-[11px] font-bold tracking-[0.10em] text-brand-400 uppercase">
-            Producto Sincronizado
-          </p>
-          <p className="text-[12px] text-(--ink-3) truncate">
-            Los cambios ya están activos en tu tienda
-          </p>
-        </div>
-        <div className="stock-live-dot flex-shrink-0" />
-      </div>
+      <Link
+        href="/store/stock"
+        className="live-launch-btn w-full justify-center text-[14px]"
+      >
+        Regresar a Stock →
+      </Link>
     </div>
   )
 }
 
-type Props = { productId: string }
-
-export function EditProductSuccess({ productId }: Props) {
+export function DeleteProductSuccess() {
   return (
     <>
       <Ambient />
 
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
-        <div className="px-5 pt-16 flex flex-col items-center gap-6 reveal d1">
-          <SuccessContent productId={productId} />
+        <div className="flex items-center justify-between px-5 py-4">
+          <span className="text-[11px] font-bold tracking-[0.18em] text-brand-400 uppercase">
+            Stock
+          </span>
         </div>
+
+        <div className="px-5 pt-10 flex flex-col items-center gap-6 reveal d1">
+          <SuccessContent />
+        </div>
+
         <BottomNav />
         <div className="h-24" />
       </div>
@@ -125,7 +102,7 @@ export function EditProductSuccess({ productId }: Props) {
       <div className="hidden lg:flex flex-col stage screen-enter">
         <div className="flex items-center justify-center py-16 px-8">
           <div className="flex flex-col items-center gap-8 w-full max-w-sm">
-            <SuccessContent productId={productId} />
+            <SuccessContent />
           </div>
         </div>
       </div>

@@ -269,7 +269,7 @@ input  { font-family: inherit; }
 .drop-notify-btn:hover { background: rgba(255,31,135,0.12); border-color: rgba(255,31,135,0.55); }
 
 /* ===== Bottom nav ===== */
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: space-around; padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); background: rgba(255,255,255,0.04); backdrop-filter: blur(24px) saturate(160%); -webkit-backdrop-filter: blur(24px) saturate(160%); border-top: 1px solid rgba(255,255,255,0.06); }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: space-around; padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); background: rgba(255,255,255,0.05); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); border-top: 1px solid rgba(255,255,255,0.08); }
 .bottom-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 12px; border-radius: var(--r-lg); cursor: pointer; transition: all .2s; background: none; border: none; color: var(--ink-3); flex: 1; }
 .bottom-nav-item.active { color: var(--brand-400); }
 .bottom-nav-live { width: 44px; height: 44px; border-radius: 50%; background: var(--grad-pink); display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: var(--glow-pink-sm); border: none; cursor: pointer; transition: transform .2s; margin-top: -12px; flex-shrink: 0; }
@@ -507,7 +507,7 @@ input  { font-family: inherit; }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
 @keyframes pulse-ring { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
 @keyframes slide-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
-@keyframes screen-in { 0% { opacity: 0; transform: translateY(12px) scale(0.992); filter: blur(8px); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+@keyframes screen-in { 0% { opacity: 0; transform: translateY(12px) scale(0.992); filter: blur(8px); } 100% { opacity: 1; transform: none; filter: none; } }
 @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse-glow { 0% { opacity: 0.4; transform: scale(0.92); } 100% { opacity: 1; transform: scale(1.08); } }

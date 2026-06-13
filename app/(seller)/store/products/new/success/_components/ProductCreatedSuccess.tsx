@@ -2,45 +2,7 @@
 
 import Link from 'next/link'
 import { Ambient } from '@/components/Ambient'
-
-const NAV_ITEMS = [
-  { icon: '🏠', label: 'Home',   active: false, href: '/home' },
-  { icon: '🛍',  label: 'Store',  active: true,  href: '/store' },
-  { icon: null,  label: 'Live',   active: false, isLive: true },
-  { icon: '💰',  label: 'Ventas', active: false, href: null },
-  { icon: '👤',  label: 'Perfil', active: false, href: null },
-]
-
-function BottomNav() {
-  return (
-    <nav className="bottom-nav">
-      {NAV_ITEMS.map((item) =>
-        item.isLive ? (
-          <button key="live" className="bottom-nav-live" aria-label="Live">⚡</button>
-        ) : item.href ? (
-          <Link
-            key={item.label}
-            href={item.href}
-            className={`bottom-nav-item${item.active ? ' active' : ''}`}
-            aria-label={item.label}
-          >
-            <span className="text-[18px]">{item.icon}</span>
-            <span className="text-[10px] font-semibold tracking-[0.12em]">{item.label}</span>
-          </Link>
-        ) : (
-          <button
-            key={item.label}
-            className={`bottom-nav-item${item.active ? ' active' : ''}`}
-            aria-label={item.label}
-          >
-            <span className="text-[18px]">{item.icon}</span>
-            <span className="text-[10px] font-semibold tracking-[0.12em]">{item.label}</span>
-          </button>
-        )
-      )}
-    </nav>
-  )
-}
+import { SellerBottomNav } from '@/components/SellerBottomNav'
 
 export function ProductCreatedSuccess() {
   return (
@@ -79,7 +41,7 @@ export function ProductCreatedSuccess() {
           </div>
         </div>
 
-        <BottomNav />
+        <SellerBottomNav active="store" />
         <div className="h-24" />
       </div>
 

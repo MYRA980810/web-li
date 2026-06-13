@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
-import { LAST_STORE_PATH_KEY } from '@/app/(seller)/store/_components/StorePathTracker'
+import { SellerBottomNav } from '@/components/SellerBottomNav'
 
 const NEWS_PROMOS = [
   {
@@ -41,14 +40,6 @@ const COMMUNITY_POST = {
   comments: 34,
   time: 'hace 2h',
 }
-
-const NAV_ITEMS = [
-  { icon: '🏠', label: 'Home',   active: true,  href: '/home' },
-  { icon: '🛍',  label: 'Store',  active: false, isStore: true },
-  { icon: null,  label: 'Live',   active: false, isLive: true  },
-  { icon: '💰',  label: 'Ventas', active: false, href: null },
-  { icon: '👤',  label: 'Perfil', active: false, href: null },
-]
 
 function BrandMark() {
   return (
@@ -185,56 +176,6 @@ function CommunityPost() {
   )
 }
 
-function BottomNav() {
-  const router = useRouter()
-
-  function handleStore() {
-    const saved = typeof window !== 'undefined'
-      ? (sessionStorage.getItem(LAST_STORE_PATH_KEY) ?? '/store')
-      : '/store'
-    router.push(saved)
-  }
-
-  return (
-    <nav className="bottom-nav">
-      {NAV_ITEMS.map((item) =>
-        item.isLive ? (
-          <button key="live" className="bottom-nav-live" aria-label="Live">⚡</button>
-        ) : item.isStore ? (
-          <button
-            key="store"
-            onClick={handleStore}
-            className="bottom-nav-item"
-            aria-label="Store"
-          >
-            <span className="text-[18px]">{item.icon}</span>
-            <span className="text-[10px] font-semibold tracking-[0.12em]">{item.label}</span>
-          </button>
-        ) : item.href ? (
-          <Link
-            key={item.label}
-            href={item.href}
-            className={`bottom-nav-item${item.active ? ' active' : ''}`}
-            aria-label={item.label}
-          >
-            <span className="text-[18px]">{item.icon}</span>
-            <span className="text-[10px] font-semibold tracking-[0.12em]">{item.label}</span>
-          </Link>
-        ) : (
-          <button
-            key={item.label}
-            className={`bottom-nav-item${item.active ? ' active' : ''}`}
-            aria-label={item.label}
-          >
-            <span className="text-[18px]">{item.icon}</span>
-            <span className="text-[10px] font-semibold tracking-[0.12em]">{item.label}</span>
-          </button>
-        )
-      )}
-    </nav>
-  )
-}
-
 export function SellerHomeScreen() {
   return (
     <>
@@ -271,7 +212,7 @@ export function SellerHomeScreen() {
           <CommunityPost />
         </div>
 
-        <BottomNav />
+        <SellerBottomNav active="home" />
         <div className="h-24" />
       </div>
 

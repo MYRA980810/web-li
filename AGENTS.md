@@ -475,6 +475,70 @@ app/(shop)/live/
 ```
 ---
 
+## Bottom Navigation Pattern (mandatory)
+
+> **Every bottom navigation bar in this app MUST follow this pattern. No exceptions.**
+
+### Why this pattern exists
+
+The `.screen-enter` animation uses `filter: blur()` which creates a CSS stacking context. Any `position: fixed` element inside `.stage.screen-enter` becomes fixed relative to that container instead of the viewport — making the nav appear at the bottom of the page content, not the screen.
+
+### Implementation checklist
+
+**1. Always use React Portal**
+```tsx
+import { createPortal } from 'react-dom'
+
+// mounted guard — document.body only exists on client
+const [mounted, setMounted] = useState(false)
+useEffect(() => setMounted(true), [])
+if (!mounted) return null
+
+return createPortal(
+  <nav className="bottom-nav lg:hidden" style={...}>
+    {/* nav items */}
+  </nav>,
+  document.body
+)
+```
+
+**2. CSS class — `globals.css`**
+```css
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  background: rgba(5,5,7,0.88);        /* --bg-0 at 88% — never use rgba(255,255,255,0.04) */
+  backdrop-filter: blur(24px) saturate(160%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+```
+
+**3. Scroll hide/show (Facebook-style)**
+```ts
+const onScroll = () => {
+  const y = window.scrollY
+  const delta = y - lastScrollY.current
+  if (y < 50) setVisible(true)
+  else if (delta > 8) setVisible(false)
+  else if (delta < -8) setVisible(true)
+  lastScrollY.current = y
+}
+window.addEventListener('scroll', onScroll, { passive: true })
+```
+
+**4. Swipe navigation**
+- Swipe right (dx > 0) → tab to the right
+- Swipe left (dx < 0) → tab to the left
+- Minimum 60px horizontal, axis guard: `Math.abs(dx) < Math.abs(dy) * 1.5`
+- Use `activeRef` mutable ref to avoid stale closure in touch handler
+
+**5. `lg:hidden` directly on `<nav>`**
+Required because the portal renders outside any `lg:hidden` screen wrapper.
+
+### Reference implementation
+`components/SellerBottomNav.tsx`
+
+---
+
 ## Codebase Navigation (mandatory)
 
 The project has a graphify knowledge graph at `graphify-out/`. **Always use graphify to search or explore the codebase** instead of reading files directly.

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
+import { ProductImagePicker, type PickerState } from '@/components/ProductImagePicker'
 import { updateProduct } from '@/lib/productActions'
 import type { ProductView, Category } from '@/lib/types'
 
@@ -32,14 +32,8 @@ function NotFound() {
   )
 }
 
-function getPrimaryImage(product: ProductView): string | null {
-  const primary = product.images.find((img) => img.primary)
-  return primary?.url ?? product.images[0]?.url ?? null
-}
-
 function EditForm({ product, categories }: { product: ProductView; categories: Category[] }) {
   const router = useRouter()
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const defaultVariant = product.variants.find((v) => v.isDefault)
 
@@ -49,18 +43,10 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
   const [price, setPrice]                 = useState(String(product.basePrice))
   const [currency, setCurrency]           = useState(product.currency)
   const [additionalStock, setAdditionalStock] = useState('')
-  // active toggle — can only deactivate (no reactivate endpoint in backend yet)
-  const [wantsDeactivate, setWantsDeactivate] = useState(false)
-  const [imagePreview, setImagePreview]   = useState<string | null>(null)
-  const existingImage = getPrimaryImage(product)
+  const [wantsPause, setWantsPause] = useState(product.paused)
+  const [pickerState, setPickerState]     = useState<PickerState>({ newFiles: [], deletedImageIds: [] })
   const [isLoading, setIsLoading]         = useState(false)
   const [error, setError]                 = useState<string | null>(null)
-
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImagePreview(URL.createObjectURL(file))
-  }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -74,9 +60,9 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
     fd.set('basePrice', price)
     fd.set('currency', currency)
     fd.set('additionalStock', additionalStock || '0')
-    fd.set('wantsDeactivate', String(wantsDeactivate))
-    const file = fileRef.current?.files?.[0]
-    if (file) fd.set('image', file)
+    fd.set('wantsPause', String(wantsPause))
+    pickerState.newFiles.forEach((f) => fd.append('images', f))
+    pickerState.deletedImageIds.forEach((id) => fd.append('deletedImageIds', id))
 
     const variantId = defaultVariant?.id ?? ''
     const result = await updateProduct(product.id, variantId, fd)
@@ -93,47 +79,7 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
   const formContent = (idSuffix: string) => (
     <>
       {/* ── Imagen ── */}
-      <div
-        className="product-media-hero-zone"
-        onClick={() => fileRef.current?.click()}
-      >
-        {imagePreview ? (
-          <>
-            <Image
-              src={imagePreview}
-              alt="Vista previa"
-              width={480}
-              height={220}
-              className="product-media-hero-img"
-            />
-            <div className="product-media-hero-overlay">
-              <span className="text-[24px]">📷</span>
-              <span className="product-media-hero-label">Cambiar Imagen</span>
-            </div>
-          </>
-        ) : existingImage ? (
-          <>
-            <Image
-              src={existingImage}
-              alt={product.name}
-              width={480}
-              height={220}
-              className="product-media-hero-img"
-            />
-            <div className="product-media-hero-overlay">
-              <span className="text-[24px]">📷</span>
-              <span className="product-media-hero-label">Cambiar Imagen</span>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-3 py-8">
-            <span className="text-[48px] opacity-40">📷</span>
-            <span className="text-[11px] font-bold tracking-[0.10em] text-(--ink-3) uppercase">
-              Subir Imagen
-            </span>
-          </div>
-        )}
-      </div>
+      <ProductImagePicker existingImages={product.images} onChange={setPickerState} />
 
       {/* ── Nombre ── */}
       <div>
@@ -245,27 +191,30 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
         </div>
       </div>
 
-      {/* ── Estado — solo deactivate (no existe endpoint de reactivate para productos) ── */}
+      {/* ── Pausa temporal — solo cuando el producto está activo ── */}
       {product.active && (
         <div
           className="flex items-center justify-between px-4 py-3.5 rounded-[var(--r-lg)]"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{
+            background: wantsPause ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.04)',
+            border: wantsPause ? '1px solid rgba(245,158,11,0.22)' : '1px solid rgba(255,255,255,0.08)',
+          }}
         >
           <div className="flex flex-col gap-0.5">
-            <label className="store-form-label mb-0 cursor-pointer" htmlFor={`deactivate${idSuffix}`}>
-              Estado del Producto
+            <label className="store-form-label mb-0 cursor-pointer" htmlFor={`pause${idSuffix}`}>
+              Ventas del Producto
             </label>
-            <span className="text-[12px] text-(--ink-3)">
-              {wantsDeactivate ? 'Se desactivará al guardar' : 'Activo — visible en tu tienda'}
+            <span className="text-[12px]" style={{ color: wantsPause ? '#fbbf24' : 'var(--ink-3)' }}>
+              {wantsPause ? 'Pausado — los compradores no pueden comprar' : 'Activo — compradores pueden comprar'}
             </span>
           </div>
           <button
-            id={`deactivate${idSuffix}`}
+            id={`pause${idSuffix}`}
             type="button"
             role="switch"
-            aria-checked={!wantsDeactivate}
-            onClick={() => setWantsDeactivate((v) => !v)}
-            className={`toggle-switch${wantsDeactivate ? '' : ' on'}`}
+            aria-checked={wantsPause}
+            onClick={() => setWantsPause((v) => !v)}
+            className={`toggle-switch${wantsPause ? ' on' : ''}`}
           />
         </div>
       )}
@@ -313,14 +262,6 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
 
   return (
     <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={handleImageChange}
-      />
-
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden">
         <form onSubmit={handleSubmit} className="px-5 pt-5 pb-2 flex flex-col gap-4 reveal d1">

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
+import { ProductImagePicker, type PickerState } from '@/components/ProductImagePicker'
 import { createProduct } from '@/lib/productActions'
 import type { Category } from '../page'
 
@@ -14,7 +15,6 @@ type Props = { categories: Category[] }
 
 export function AddProductForm({ categories }: Props) {
   const router = useRouter()
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const [name, setName]               = useState('')
   const [categoryId, setCategoryId]   = useState('')
@@ -22,15 +22,9 @@ export function AddProductForm({ categories }: Props) {
   const [price, setPrice]             = useState('')
   const [currency, setCurrency]       = useState('MXN')
   const [stock, setStock]             = useState('')
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [isLoading, setIsLoading]       = useState(false)
-  const [error, setError]               = useState<string | null>(null)
-
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImagePreview(URL.createObjectURL(file))
-  }
+  const [pickerState, setPickerState] = useState<PickerState>({ newFiles: [], deletedImageIds: [] })
+  const [isLoading, setIsLoading]     = useState(false)
+  const [error, setError]             = useState<string | null>(null)
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -44,8 +38,7 @@ export function AddProductForm({ categories }: Props) {
     fd.set('basePrice', price)
     fd.set('currency', currency)
     fd.set('stock', stock)
-    const file = fileRef.current?.files?.[0]
-    if (file) fd.set('image', file)
+    pickerState.newFiles.forEach((f) => fd.append('images', f))
 
     const result = await createProduct(fd)
 
@@ -173,29 +166,7 @@ export function AddProductForm({ categories }: Props) {
       {/* ── Multimedia ── */}
       <div className="product-section flex flex-col gap-4">
         <p className="product-section-title">Multimedia</p>
-
-        <div
-          className="product-media-zone"
-          onClick={() => fileRef.current?.click()}
-        >
-          {imagePreview ? (
-            <>
-              <img
-                src={imagePreview}
-                alt="Vista previa del producto"
-                className="product-media-thumb"
-              />
-              <div className="product-media-badge">✏️</div>
-            </>
-          ) : (
-            <div className="product-upload-hint">
-              <span className="text-[40px] opacity-40">📷</span>
-              <span className="text-[12px] text-(--ink-3) font-medium">
-                Subir imagen del producto
-              </span>
-            </div>
-          )}
-        </div>
+        <ProductImagePicker onChange={setPickerState} />
       </div>
 
       {error && (
@@ -222,14 +193,6 @@ export function AddProductForm({ categories }: Props) {
   return (
     <>
       <Ambient />
-
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={handleImageChange}
-      />
 
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">

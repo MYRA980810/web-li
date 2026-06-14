@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
@@ -10,9 +11,52 @@ function formatPrice(price: number, currency: string): string {
   return `$${price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
 }
 
-function getPrimaryImage(product: ProductView): string | null {
-  const primary = product.images.find((img) => img.primary)
-  return primary?.url ?? product.images[0]?.url ?? null
+function ImageGallery({ product }: { product: ProductView }) {
+  const [activeIdx, setActiveIdx] = useState(0)
+  const images = product.images.slice().sort((a, b) => a.position - b.position)
+
+  if (images.length === 0) {
+    return (
+      <div className="product-detail-hero">
+        <div className="product-detail-hero-emoji">📦</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="product-detail-hero">
+        <Image
+          src={images[activeIdx]!.url}
+          alt={product.name}
+          width={480}
+          height={220}
+          className="product-detail-hero-img"
+        />
+      </div>
+      {images.length > 1 && (
+        <div className="product-gallery-thumbs">
+          {images.map((img, idx) => (
+            <button
+              key={img.id}
+              type="button"
+              className={`product-gallery-thumb${activeIdx === idx ? ' active' : ''}`}
+              onClick={() => setActiveIdx(idx)}
+              aria-label={`Ver imagen ${idx + 1}`}
+            >
+              <Image
+                src={img.url}
+                alt={`${product.name} ${idx + 1}`}
+                width={56}
+                height={56}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function NotFound() {
@@ -31,24 +75,10 @@ function NotFound() {
 }
 
 function DetailContent({ product }: { product: ProductView }) {
-  const imageUrl = getPrimaryImage(product)
-
   return (
     <div className="flex flex-col gap-4">
-      {/* Hero — full-width image with price overlay */}
-      <div className="product-detail-hero">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            width={480}
-            height={220}
-            className="product-detail-hero-img"
-          />
-        ) : (
-          <div className="product-detail-hero-emoji">📦</div>
-        )}
-      </div>
+      {/* Hero — image gallery with thumbnails */}
+      <ImageGallery product={product} />
 
       {/* Name + status + category */}
       <div className="product-detail-section flex flex-col gap-3">

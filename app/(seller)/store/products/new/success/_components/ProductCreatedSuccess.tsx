@@ -27,7 +27,7 @@ export function ProductCreatedSuccess() {
 
           <div className="flex flex-col gap-3 w-full">
             <Link
-              href="/store"
+              href="/store/stock"
               className="live-launch-btn w-full justify-center text-[14px]"
             >
               Ver en Stock
@@ -64,7 +64,7 @@ export function ProductCreatedSuccess() {
 
             <div className="flex flex-col gap-3 w-full">
               <Link
-                href="/store"
+                href="/store/stock"
                 className="live-launch-btn w-full justify-center text-[14px]"
               >
                 Ver en Stock

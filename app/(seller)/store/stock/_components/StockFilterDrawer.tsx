@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Category } from '@/lib/types'
 
-export type SortOption = 'price_desc' | 'price_asc' | 'newest'
+export type SortOption = 'none' | 'price_desc' | 'price_asc' | 'newest'
 export type InventoryFilter = 'all' | 'critical' | 'normal'
 
 export type StockFilters = {
@@ -14,15 +14,16 @@ export type StockFilters = {
 }
 
 export const DEFAULT_FILTERS: StockFilters = {
-  sortBy: 'newest',
+  sortBy: 'none',
   categoryId: null,
   inventoryStatus: 'all',
 }
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'none', label: 'Sin orden' },
+  { value: 'newest', label: 'Recién Agregados' },
   { value: 'price_desc', label: 'Mayor Precio' },
   { value: 'price_asc', label: 'Menor Precio' },
-  { value: 'newest', label: 'Recién Agregados' },
 ]
 
 const WarningIcon = () => (
@@ -100,17 +101,14 @@ export function StockFilterDrawer({ open, onClose, filters, onApply, availableCa
           {/* Sort */}
           <div className="stock-filter-section">
             <span className="stock-filter-section-label">Ordenar por</span>
-            <div className="flex flex-col gap-2">
+            <div className="stock-filter-chips">
               {SORT_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
-                  className={`stock-filter-radio-row${draft.sortBy === opt.value ? ' selected' : ''}`}
+                  className={`stock-filter-chip${draft.sortBy === opt.value ? ' selected' : ''}`}
                   onClick={() => setDraft(prev => ({ ...prev, sortBy: opt.value }))}
                 >
-                  <span className="stock-filter-radio-row-label">{opt.label}</span>
-                  <div className="stock-filter-radio-dot">
-                    {draft.sortBy === opt.value && <div className="stock-filter-radio-dot-fill" />}
-                  </div>
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -180,7 +178,7 @@ export function StockFilterDrawer({ open, onClose, filters, onApply, availableCa
 
         <div className="stock-filter-footer">
           <button className="stock-filter-clear-btn" onClick={handleClear}>
-            Limpiar<br />filtros
+            Limpiar filtros
           </button>
           <button className="stock-filter-apply-btn" onClick={handleApply}>
             Aplicar filtros

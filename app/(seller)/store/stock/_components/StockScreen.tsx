@@ -177,6 +177,7 @@ export function StockScreen({ products, categories, initialFilters }: Props) {
     const params = new URLSearchParams()
     if (newFilters.sortBy === 'price_asc') params.set('sort', 'PRICE_ASC')
     else if (newFilters.sortBy === 'price_desc') params.set('sort', 'PRICE_DESC')
+    else if (newFilters.sortBy === 'newest') params.set('sort', 'RECENTLY_ADDED')
 
     if (newFilters.categoryId) params.set('categoryId', newFilters.categoryId)
 

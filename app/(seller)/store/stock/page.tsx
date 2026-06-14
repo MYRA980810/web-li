@@ -23,7 +23,7 @@ export default async function StockPage({
   ])
 
   const initialFilters: StockFilters = {
-    sortBy: params.sort === 'PRICE_ASC' ? 'price_asc' : params.sort === 'PRICE_DESC' ? 'price_desc' : 'newest',
+    sortBy: params.sort === 'PRICE_ASC' ? 'price_asc' : params.sort === 'PRICE_DESC' ? 'price_desc' : params.sort === 'RECENTLY_ADDED' ? 'newest' : 'none',
     categoryId: params.categoryId ?? null,
     inventoryStatus: params.stockLevel === 'CRITICAL' ? 'critical' : params.stockLevel === 'NORMAL' ? 'normal' : 'all',
   }

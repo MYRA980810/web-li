@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import type { ProductView } from '@/lib/types'
+import { StockFilterDrawer, DEFAULT_FILTERS } from './StockFilterDrawer'
+import type { StockFilters } from './StockFilterDrawer'
+import type { ProductView, Category } from '@/lib/types'
 
 const FilterIcon = () => (
   <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
@@ -105,7 +107,7 @@ function StockContent({ products }: { products: ProductView[] }) {
   const [search, setSearch] = useState('')
   const totalUnits = products.reduce((sum, p) => sum + p.stock.totalQuantity, 0)
 
-  const filtered = search.trim()
+  const displayed = search.trim()
     ? products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
     : products
 
@@ -132,13 +134,13 @@ function StockContent({ products }: { products: ProductView[] }) {
 
       {products.length === 0 ? (
         <EmptyState />
-      ) : filtered.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <p className="text-[13px] text-(--ink-3) text-center py-6">
           Sin resultados para &quot;{search}&quot;
         </p>
       ) : (
         <div className="flex flex-col">
-          {filtered.map((p) => (
+          {displayed.map((p) => (
             <ProductRow key={p.id} product={p} />
           ))}
         </div>
@@ -147,10 +149,43 @@ function StockContent({ products }: { products: ProductView[] }) {
   )
 }
 
-type Props = { products: ProductView[] }
+type Props = {
+  products: ProductView[]
+  categories: Category[]
+  initialFilters: StockFilters
+}
 
-export function StockScreen({ products }: Props) {
+export function StockScreen({ products, categories, initialFilters }: Props) {
   const router = useRouter()
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [filters, setFilters] = useState<StockFilters>(initialFilters)
+
+  // Sync filter state when server re-renders with new URL params
+  useEffect(() => {
+    setFilters(initialFilters)
+  }, [initialFilters.sortBy, initialFilters.categoryId, initialFilters.inventoryStatus]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasActiveFilters =
+    filters.sortBy !== DEFAULT_FILTERS.sortBy ||
+    filters.categoryId !== null ||
+    filters.inventoryStatus !== DEFAULT_FILTERS.inventoryStatus
+
+  function handleApply(newFilters: StockFilters) {
+    setFilters(newFilters)
+    setFilterOpen(false)
+
+    const params = new URLSearchParams()
+    if (newFilters.sortBy === 'price_asc') params.set('sort', 'PRICE_ASC')
+    else if (newFilters.sortBy === 'price_desc') params.set('sort', 'PRICE_DESC')
+
+    if (newFilters.categoryId) params.set('categoryId', newFilters.categoryId)
+
+    if (newFilters.inventoryStatus === 'critical') params.set('stockLevel', 'CRITICAL')
+    else if (newFilters.inventoryStatus === 'normal') params.set('stockLevel', 'NORMAL')
+
+    const qs = params.toString()
+    router.push(`/store/stock${qs ? `?${qs}` : ''}`)
+  }
 
   return (
     <>
@@ -165,8 +200,13 @@ export function StockScreen({ products }: Props) {
           <span className="absolute inset-0 flex items-center justify-center font-display font-bold text-[15px] text-(--ink-0) tracking-[0.06em] uppercase pointer-events-none">
             Mi Stock
           </span>
-          <button className="home-nav-icon" aria-label="Filtros">
+          <button
+            className="home-nav-icon stock-filter-icon-wrap"
+            aria-label="Filtros"
+            onClick={() => setFilterOpen(true)}
+          >
             <FilterIcon />
+            {hasActiveFilters && <span className="stock-filter-badge" />}
           </button>
         </div>
 
@@ -200,8 +240,13 @@ export function StockScreen({ products }: Props) {
           <span className="font-display font-bold text-[15px] text-(--ink-0) tracking-[0.06em] uppercase">
             Mi Stock
           </span>
-          <button className="home-nav-icon" aria-label="Filtros">
+          <button
+            className="home-nav-icon stock-filter-icon-wrap"
+            aria-label="Filtros"
+            onClick={() => setFilterOpen(true)}
+          >
             <FilterIcon />
+            {hasActiveFilters && <span className="stock-filter-badge" />}
           </button>
         </div>
 
@@ -211,6 +256,14 @@ export function StockScreen({ products }: Props) {
           </div>
         </div>
       </div>
+
+      <StockFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        filters={filters}
+        onApply={handleApply}
+        availableCategories={categories}
+      />
     </>
   )
 }

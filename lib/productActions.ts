@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { createProductSchema, updateProductSchema } from './schemas'
-import type { ProductView } from './types'
+import type { ProductView, Category } from './types'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -22,16 +22,48 @@ async function getToken(): Promise<string | null> {
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
-export async function getMyProducts(): Promise<ProductView[]> {
+export type ProductQueryParams = {
+  sort?: 'RECENTLY_ADDED' | 'PRICE_ASC' | 'PRICE_DESC'
+  categoryId?: string | null
+  stockLevel?: 'ALL' | 'CRITICAL' | 'NORMAL'
+}
+
+export async function getMyProducts(params?: ProductQueryParams): Promise<ProductView[]> {
   const token = await getToken()
   if (!token) return []
   try {
-    const res = await fetch(`${API}/api/products/me`, {
+    const qs = new URLSearchParams()
+    if (params?.sort) qs.set('sort', params.sort)
+    if (params?.categoryId) qs.set('categoryId', params.categoryId)
+    if (params?.stockLevel && params.stockLevel !== 'ALL') qs.set('stockLevel', params.stockLevel)
+
+    const query = qs.toString()
+    const res = await fetch(`${API}/api/products/me${query ? `?${query}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) return []
     return res.json() as Promise<ProductView[]>
   } catch {
+    return []
+  }
+}
+
+export async function getMyCategories(): Promise<Category[]> {
+  const token = await getToken()
+  if (!token) return []
+  try {
+    const res = await fetch(`${API}/api/products/me/categories`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      console.error(`[getMyCategories] ${res.status} ${res.statusText}:`, body)
+      return []
+    }
+    const data: Category[] = await res.json()
+    return data
+  } catch (err) {
+    console.error('[getMyCategories] fetch error:', err)
     return []
   }
 }

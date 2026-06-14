@@ -18,7 +18,16 @@ type Props = { store: StoreResponse }
 
 function InfoContent({ store }: Props) {
   const isActive = store.active && !store.suspended
+  const isClosed = store.temporarilyClosed
   const storeId  = `#${store.slug.slice(0, 10).toUpperCase()}`
+
+  const chipVariant = !isActive ? 'suspended' : isClosed ? 'closed' : 'active'
+  const chipDot     = !isActive ? '#f87171'   : isClosed ? '#fbbf24' : '#4ade80'
+  const chipLabel   = !isActive
+    ? (store.suspended ? 'Suspendida' : 'Inactiva')
+    : isClosed
+      ? 'Cerrada temporalmente'
+      : 'Tienda Activa'
 
   return (
     <div className="flex flex-col gap-5">
@@ -39,9 +48,9 @@ function InfoContent({ store }: Props) {
           )}
         </div>
 
-        <div className="store-info-status-chip active">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-          {isActive ? 'Tienda Activa' : store.suspended ? 'Suspendida' : 'Inactiva'}
+        <div className={`store-info-status-chip ${chipVariant}`}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: chipDot }} />
+          {chipLabel}
         </div>
 
         <div className="flex flex-col items-center gap-1 text-center">
@@ -147,7 +156,7 @@ export function StoreInfoScreen({ store }: Props) {
               Shop Profile
             </span>
           </div>
-          <button className="home-nav-icon" aria-label="Opciones">⋮</button>
+          <Link href="/store/manage" className="home-nav-icon" aria-label="Opciones">⋮</Link>
         </div>
 
         <div className="px-5 pt-3 pb-2 flex flex-col gap-4 reveal d1">
@@ -171,7 +180,7 @@ export function StoreInfoScreen({ store }: Props) {
             <span className="text-[9px] font-bold tracking-[0.20em] text-(--ink-3) uppercase">Mi Tienda</span>
             <span className="font-display font-bold text-[14px] text-(--ink-0) tracking-[0.06em] uppercase">Shop Profile</span>
           </div>
-          <div className="w-20" />
+          <Link href="/store/manage" className="home-nav-icon" aria-label="Opciones">⋮</Link>
         </div>
 
         <div className="flex items-start justify-center py-10 px-8">

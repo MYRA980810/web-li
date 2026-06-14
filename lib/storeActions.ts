@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { createStoreSchema, type CreateStoreInput, updateStoreSchema, type UpdateStoreInput } from './schemas'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
@@ -179,6 +180,8 @@ export async function closeStoreTemporarily(): Promise<{ ok: boolean; error?: st
       const error = await parseProblemDetail(res)
       return { ok: false, error }
     }
+    revalidatePath('/store')
+    revalidatePath('/store/manage')
     return { ok: true }
   } catch {
     return { ok: false, error: 'No se pudo conectar con el servidor' }
@@ -199,6 +202,8 @@ export async function reopenStore(): Promise<{ ok: boolean; error?: string }> {
       const error = await parseProblemDetail(res)
       return { ok: false, error }
     }
+    revalidatePath('/store')
+    revalidatePath('/store/manage')
     return { ok: true }
   } catch {
     return { ok: false, error: 'No se pudo conectar con el servidor' }

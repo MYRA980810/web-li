@@ -6,7 +6,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import { deactivateProduct } from '@/lib/productActions'
+import { deactivateProduct, pauseProduct, resumeProduct } from '@/lib/productActions'
 import type { ProductView } from '@/lib/types'
 
 function NotFound() {
@@ -24,6 +24,7 @@ function NotFound() {
 function ConfirmContent({ product }: { product: ProductView }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [pendingAction, setPendingAction] = useState<'pause' | 'resume' | 'delete' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const imageUrl =
@@ -31,14 +32,47 @@ function ConfirmContent({ product }: { product: ProductView }) {
     product.images[0]?.url ??
     null
 
+  const isActive = product.active
+  const isPaused = product.paused
+
+  function handlePause() {
+    setError(null)
+    setPendingAction('pause')
+    startTransition(async () => {
+      const result = await pauseProduct(product.id)
+      if (result.ok) {
+        router.replace(`/store/stock/${product.id}`)
+      } else {
+        setError(result.error)
+        setPendingAction(null)
+      }
+    })
+  }
+
+  function handleResume() {
+    setError(null)
+    setPendingAction('resume')
+    startTransition(async () => {
+      const result = await resumeProduct(product.id)
+      if (result.ok) {
+        router.replace(`/store/stock/${product.id}`)
+      } else {
+        setError(result.error)
+        setPendingAction(null)
+      }
+    })
+  }
+
   function handleDelete() {
     setError(null)
+    setPendingAction('delete')
     startTransition(async () => {
       const result = await deactivateProduct(product.id)
       if (result.ok) {
         router.replace(`/store/stock/${product.id}/delete/success`)
       } else {
         setError(result.error)
+        setPendingAction(null)
       }
     })
   }
@@ -58,14 +92,14 @@ function ConfirmContent({ product }: { product: ProductView }) {
 
       <div className="flex flex-col gap-3">
         <h1 className="font-display font-extrabold text-[32px] leading-tight tracking-[-0.03em] text-(--ink-0)">
-          ¿Eliminar<br />Producto?
+          Estado del<br />Producto
         </h1>
         <p className="text-[14px] text-(--ink-2) leading-relaxed max-w-xs mx-auto">
-          Esta acción no se puede deshacer. El producto será removido
-          permanentemente de tu stock.
+          Pausá las ventas temporalmente o eliminá el producto de tu stock de forma permanente.
         </p>
       </div>
 
+      {/* Product card */}
       <div className="product-detail-card w-full text-left">
         <div className="product-detail-thumb">
           {imageUrl ? (
@@ -90,6 +124,24 @@ function ConfirmContent({ product }: { product: ProductView }) {
               Categoría: {product.categoryName}
             </p>
           )}
+          <span
+            className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-bold tracking-[0.10em] uppercase px-2 py-0.5 rounded-full"
+            style={
+              !isActive
+                ? { background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }
+                : isPaused
+                  ? { background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.28)', color: '#fbbf24' }
+                  : { background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ade80' }
+            }
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: !isActive ? '#f87171' : isPaused ? '#fbbf24' : '#4ade80',
+              }}
+            />
+            {!isActive ? 'Inactivo' : isPaused ? 'Pausado' : 'Activo'}
+          </span>
         </div>
       </div>
 
@@ -98,14 +150,63 @@ function ConfirmContent({ product }: { product: ProductView }) {
       )}
 
       <div className="flex flex-col gap-3 w-full">
-        <button
-          onClick={handleDelete}
-          disabled={isPending}
-          className="live-launch-btn w-full justify-center text-[13px] tracking-[0.06em] uppercase"
-          style={{ opacity: isPending ? 0.7 : 1 }}
-        >
-          {isPending ? 'Eliminando...' : 'Eliminar Producto'}
-        </button>
+        {/* Pause / Resume — only when product is active */}
+        {isActive && !isPaused && (
+          <button
+            onClick={handlePause}
+            disabled={isPending}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-[var(--r-pill)] text-[13px] font-bold tracking-[0.06em] uppercase transition-all"
+            style={{
+              background: 'rgba(245,158,11,0.12)',
+              border: '1px solid rgba(245,158,11,0.32)',
+              color: '#fbbf24',
+              opacity: isPending ? 0.6 : 1,
+            }}
+          >
+            {pendingAction === 'pause' ? 'Pausando...' : 'Pausar ventas temporalmente'}
+          </button>
+        )}
+
+        {isActive && isPaused && (
+          <button
+            onClick={handleResume}
+            disabled={isPending}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-[var(--r-pill)] text-[13px] font-bold tracking-[0.06em] uppercase transition-all"
+            style={{
+              background: 'rgba(34,197,94,0.10)',
+              border: '1px solid rgba(34,197,94,0.28)',
+              color: '#4ade80',
+              opacity: isPending ? 0.6 : 1,
+            }}
+          >
+            {pendingAction === 'resume' ? 'Reanudando...' : 'Reanudar ventas'}
+          </button>
+        )}
+
+        {/* Permanent deactivation — only when product is active */}
+        {isActive && (
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className="live-launch-btn w-full justify-center text-[13px] tracking-[0.06em] uppercase"
+            style={{ opacity: isPending ? 0.7 : 1 }}
+          >
+            {pendingAction === 'delete' ? 'Eliminando...' : 'Eliminar Producto'}
+          </button>
+        )}
+
+        {!isActive && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-[var(--r-lg)] text-[13px]"
+            style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}
+          >
+            <span>⚠</span>
+            <span className="text-(--ink-2)">
+              Este producto ya está inactivo. La reactivación debe hacerse desde el panel de administración.
+            </span>
+          </div>
+        )}
+
         <Link
           href={`/store/stock/${product.id}`}
           className="text-[13px] font-semibold text-(--ink-2) text-center py-2 hover:text-(--ink-0) transition-colors tracking-[0.08em] uppercase"

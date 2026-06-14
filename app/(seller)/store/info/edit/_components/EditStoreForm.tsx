@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import { updateStore, uploadStoreLogo, setStoreActive } from '@/lib/storeActions'
+import { updateStore, uploadStoreLogo, closeStoreTemporarily, reopenStore } from '@/lib/storeActions'
 import type { StoreResponse } from '@/lib/storeActions'
 
 const StoreFieldIcon = () => (
@@ -64,12 +64,10 @@ export function EditStoreForm({ store }: Props) {
   const router  = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const initialActive = store.active && !store.suspended
-
   const [name, setName]               = useState(store.name)
   const [description, setDescription] = useState(store.description ?? '')
   const [logoPreview, setLogoPreview] = useState<string | null>(store.logoUrl)
-  const [active, setActive]           = useState(initialActive)
+  const [closed, setClosed]           = useState(store.temporarilyClosed)
   const [isLoading, setIsLoading]     = useState(false)
   const [error, setError]             = useState<string | null>(null)
 
@@ -106,8 +104,8 @@ export function EditStoreForm({ store }: Props) {
       return
     }
 
-    if (active !== initialActive) {
-      const toggle = await setStoreActive(active)
+    if (closed !== store.temporarilyClosed) {
+      const toggle = await (closed ? closeStoreTemporarily() : reopenStore())
       if (!toggle.ok) {
         setError(toggle.error ?? 'Error al cambiar el estado de la tienda')
         setIsLoading(false)
@@ -236,20 +234,26 @@ export function EditStoreForm({ store }: Props) {
       {/* ── Divider ──────────────────────────────── */}
       <div className="store-edit-divider" />
 
-      {/* ── Toggle Tienda Activa ──────────────────── */}
+      {/* ── Toggle Cierre Temporal ────────────────── */}
       <div className="store-edit-toggle-row">
         <div className="store-edit-toggle-icon">
           <LightningIcon />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="store-edit-toggle-title">Tienda Activa</p>
-          <p className="store-edit-toggle-sub">Visible para todos los usuarios</p>
+          <p className="store-edit-toggle-title">
+            {closed ? 'Tienda cerrada temporalmente' : 'Tienda abierta'}
+          </p>
+          <p className="store-edit-toggle-sub">
+            {closed
+              ? 'Los compradores no pueden realizar pedidos'
+              : 'Cerrá temporalmente para pausar todas las ventas'}
+          </p>
         </div>
-        <label className="store-edit-switch" aria-label="Activar o desactivar tienda">
+        <label className="store-edit-switch" aria-label="Cerrar o abrir tienda temporalmente">
           <input
             type="checkbox"
-            checked={active}
-            onChange={(e) => setActive(e.target.checked)}
+            checked={closed}
+            onChange={(e) => setClosed(e.target.checked)}
           />
           <span className="store-edit-switch-track" />
         </label>

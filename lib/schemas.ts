@@ -96,8 +96,8 @@ export const updateProductSchema = z.object({
   currency:        z.string().max(3).default('MXN'),
   // additionalStock: amount to ADD to existing stock (backend @Min(1), only sent if > 0)
   additionalStock: z.coerce.number().int().min(0).default(0),
-  // wantsDeactivate: triggers PATCH /api/products/{id}/deactivate (no reactivate endpoint yet)
-  wantsDeactivate: z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false),
+  // wantsPause: triggers PATCH /api/products/{id}/pause or /resume (reversible, product stays in list)
+  wantsPause: z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false),
 })
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>

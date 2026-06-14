@@ -59,6 +59,7 @@ export type StoreResponse = {
   logoUrl: string | null
   active: boolean
   suspended: boolean
+  temporarilyClosed: boolean
   createdAt: string
 }
 
@@ -143,14 +144,13 @@ export async function setStoreActive(active: boolean): Promise<{ ok: boolean; er
   const token = cookieStore.get('session')?.value
   if (!token) return { ok: false, error: 'No autenticado' }
 
-  const endpoint = active
-    ? `${API}/api/stores/me/reactivate`
-    : `${API}/api/stores/me/deactivate`
+  // Reactivate: POST /me/reactivate — Deactivate permanently: DELETE /me
+  const endpoint = `${API}/api/stores/me${active ? '/reactivate' : ''}`
 
   let res: Response
   try {
     res = await fetch(endpoint, {
-      method: active ? 'POST' : 'PATCH',
+      method: active ? 'POST' : 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
   } catch {
@@ -163,4 +163,44 @@ export async function setStoreActive(active: boolean): Promise<{ ok: boolean; er
   }
 
   return { ok: true }
+}
+
+export async function closeStoreTemporarily(): Promise<{ ok: boolean; error?: string }> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('session')?.value
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/stores/me/close`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}
+
+export async function reopenStore(): Promise<{ ok: boolean; error?: string }> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('session')?.value
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/stores/me/reopen`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
 }

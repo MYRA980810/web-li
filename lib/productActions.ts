@@ -116,14 +116,15 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
   const { name, categoryId, description, basePrice, currency, stock } = parsed.data
 
   try {
-    let imageUrl: string | null = null
-    const imageFile = formData.get('image') as File | null
-    if (imageFile && imageFile.size > 0) {
+    const imageFiles = (formData.getAll('images') as File[]).filter((f) => f.size > 0)
+
+    let imageUrls: string[] = []
+    if (imageFiles.length > 0) {
       const mediaForm = new FormData()
-      mediaForm.append('file', imageFile)
+      imageFiles.forEach((f) => mediaForm.append('files', f))
       mediaForm.append('context', 'products')
 
-      const mediaRes = await fetch(`${API}/api/media/images`, {
+      const mediaRes = await fetch(`${API}/api/media/images/batch`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: mediaForm,
@@ -134,8 +135,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
         return { ok: false, error }
       }
 
-      const mediaData = await mediaRes.json()
-      imageUrl = mediaData.url as string
+      imageUrls = ((await mediaRes.json()) as { urls: string[] }).urls
     }
 
     const productRes = await fetch(`${API}/api/products`, {
@@ -150,6 +150,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
         ...(description ? { description } : {}),
         basePrice,
         currency,
+        images: imageUrls.map((url, idx) => ({ url, position: idx, primary: idx === 0 })),
       }),
     })
 
@@ -159,21 +160,6 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     }
 
     const product = (await productRes.json()) as ProductResponse
-
-    if (imageUrl) {
-      try {
-        await fetch(`${API}/api/products/${product.id}/images`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ url: imageUrl, position: 0, primary: true }),
-        })
-      } catch {
-        // non-blocking
-      }
-    }
 
     if (stock > 0) {
       const defaultVariant = product.variants.find((v) => v.isDefault)
@@ -219,7 +205,7 @@ export async function updateProduct(
     currency:        formData.get('currency') || undefined,
     additionalStock: formData.get('additionalStock'),
     // active is handled separately via PATCH /deactivate — not part of PUT body
-    wantsDeactivate: formData.get('wantsDeactivate'),
+    wantsPause: formData.get('wantsPause'),
   })
 
   if (!parsed.success) {
@@ -237,19 +223,21 @@ export async function updateProduct(
     basePrice,
     currency,
     additionalStock,
-    wantsDeactivate,
+    wantsPause,
   } = parsed.data
 
   try {
-    // 1. Upload image if changed
-    let imageUrl: string | null = null
-    const imageFile = formData.get('image') as File | null
-    if (imageFile && imageFile.size > 0) {
+    // 1. Upload new images batch
+    const imageFiles = (formData.getAll('images') as File[]).filter((f) => f.size > 0)
+    const deletedImageIds = formData.getAll('deletedImageIds') as string[]
+
+    let newImageUrls: string[] = []
+    if (imageFiles.length > 0) {
       const mediaForm = new FormData()
-      mediaForm.append('file', imageFile)
+      imageFiles.forEach((f) => mediaForm.append('files', f))
       mediaForm.append('context', 'products')
 
-      const mediaRes = await fetch(`${API}/api/media/images`, {
+      const mediaRes = await fetch(`${API}/api/media/images/batch`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: mediaForm,
@@ -260,8 +248,7 @@ export async function updateProduct(
         return { ok: false, error }
       }
 
-      const mediaData = await mediaRes.json()
-      imageUrl = mediaData.url as string
+      newImageUrls = ((await mediaRes.json()) as { urls: string[] }).urls
     }
 
     // 2. Update product fields (PUT /api/products/{id})
@@ -286,35 +273,49 @@ export async function updateProduct(
       return { ok: false, error }
     }
 
-    // 3. Deactivate if requested (PATCH /api/products/{id}/deactivate)
-    if (wantsDeactivate) {
-      try {
-        await fetch(`${API}/api/products/${productId}/deactivate`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      } catch {
-        // non-blocking
-      }
+    // 3. Pause or resume (PATCH /api/products/{id}/pause|resume) — reversible, product stays in list
+    try {
+      await fetch(`${API}/api/products/${productId}/${wantsPause ? 'pause' : 'resume'}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    } catch {
+      // non-blocking
     }
 
-    // 4. Update product image — best-effort
-    if (imageUrl) {
+    // 4. Delete removed images — best-effort, parallel
+    if (deletedImageIds.length > 0) {
+      await Promise.allSettled(
+        deletedImageIds.map((imageId) =>
+          fetch(`${API}/api/products/${productId}/images/${imageId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        )
+      )
+    }
+
+    // 5. Associate new images via batch — best-effort
+    // primary: false because the backend automatically assigns primary to the next image
+    // when the previous primary is deleted.
+    if (newImageUrls.length > 0) {
       try {
-        await fetch(`${API}/api/products/${productId}/images`, {
+        await fetch(`${API}/api/products/${productId}/images/batch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ url: imageUrl, position: 0, primary: true }),
+          body: JSON.stringify({
+            images: newImageUrls.map((url, idx) => ({ url, position: idx, primary: false })),
+          }),
         })
       } catch {
         // non-blocking
       }
     }
 
-    // 5. Add stock if user entered a positive amount — best-effort
+    // 6. Add stock if user entered a positive amount — best-effort
     // Backend AddStockRequest requires quantity >= 1 (additive, not absolute)
     if (additionalStock && additionalStock > 0) {
       try {
@@ -334,6 +335,101 @@ export async function updateProduct(
       }
     }
 
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}
+
+export type DeleteProductImageResult = { ok: true } | { ok: false; error: string }
+
+export async function deleteProductImage(
+  productId: string,
+  imageId: string,
+): Promise<DeleteProductImageResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/products/${productId}/images/${imageId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
+
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}
+
+export type AddProductImagesBatchResult = { ok: true } | { ok: false; error: string }
+
+export async function addProductImagesBatch(
+  productId: string,
+  images: Array<{ url: string; position: number; primary: boolean }>,
+): Promise<AddProductImagesBatchResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/products/${productId}/images/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ images }),
+    })
+
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
+
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}
+
+export type PauseProductResult = { ok: true } | { ok: false; error: string }
+
+export async function pauseProduct(productId: string): Promise<PauseProductResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/products/${productId}/pause`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}
+
+export type ResumeProductResult = { ok: true } | { ok: false; error: string }
+
+export async function resumeProduct(productId: string): Promise<ResumeProductResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'No autenticado' }
+
+  try {
+    const res = await fetch(`${API}/api/products/${productId}/resume`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const error = await parseProblemDetail(res)
+      return { ok: false, error }
+    }
     return { ok: true }
   } catch {
     return { ok: false, error: 'No se pudo conectar con el servidor' }

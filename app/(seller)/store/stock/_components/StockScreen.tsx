@@ -57,9 +57,11 @@ function ProductRow({ product }: { product: ProductView }) {
         <p className="text-[13px] font-bold text-brand-400">
           {formatPrice(product.basePrice, product.currency)}
         </p>
-        <div className={`flex items-center gap-1.5 mt-0.5 ${isLow ? 'stock-low-warning' : 'text-(--ink-3)'}`}>
+        <div className={`flex items-center gap-1.5 mt-0.5 ${isLow && !product.paused ? 'stock-low-warning' : 'text-(--ink-3)'}`}>
           {!product.active ? (
             <span className="text-[12px] font-medium text-(--ink-3)">Inactivo</span>
+          ) : product.paused ? (
+            <span className="text-[12px] font-medium" style={{ color: '#fbbf24' }}>Ventas pausadas</span>
           ) : isLow ? (
             <>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">

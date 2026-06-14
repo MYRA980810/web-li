@@ -43,6 +43,7 @@ export type ProductView = {
   currency: string
   sku: string | null
   active: boolean
+  paused: boolean
   categoryId: string | null
   categoryName: string | null
   stock: ProductStockInfo

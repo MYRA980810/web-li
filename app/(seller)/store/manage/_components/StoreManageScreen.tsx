@@ -221,7 +221,7 @@ export function StoreManageScreen({ store }: Props) {
         <div className="store-back-header">
           <button
             className="store-back-btn"
-            onClick={() => router.back()}
+            onClick={() => router.push('/store')}
             aria-label="Volver"
           >
             ←
@@ -250,7 +250,7 @@ export function StoreManageScreen({ store }: Props) {
         <div className="sticky top-0 z-20 flex items-center justify-between px-12 py-5 border-b border-(--line) bg-(--bg-0)/85 backdrop-blur-xl">
           <button
             className="flex items-center gap-2 text-[14px] font-semibold text-(--ink-2) hover:text-(--ink-0) transition-colors bg-none border-none cursor-pointer"
-            onClick={() => router.back()}
+            onClick={() => router.push('/store')}
           >
             ← Volver
           </button>

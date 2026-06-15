@@ -43,6 +43,7 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
   const [price, setPrice]                 = useState(String(product.basePrice))
   const [currency, setCurrency]           = useState(product.currency)
   const [additionalStock, setAdditionalStock] = useState('')
+  const [correctStockValue, setCorrectStockValue] = useState('')
   const [wantsPause, setWantsPause] = useState(product.paused)
   const [pickerState, setPickerState]     = useState<PickerState>({ newFiles: [], deletedImageIds: [] })
   const [isLoading, setIsLoading]         = useState(false)
@@ -60,6 +61,7 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
     fd.set('basePrice', price)
     fd.set('currency', currency)
     fd.set('additionalStock', additionalStock || '0')
+    if (correctStockValue !== '') fd.set('correctStock', correctStockValue)
     fd.set('wantsPause', String(wantsPause))
     pickerState.newFiles.forEach((f) => fd.append('images', f))
     pickerState.deletedImageIds.forEach((id) => fd.append('deletedImageIds', id))
@@ -166,14 +168,16 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
         </div>
       </div>
 
-      {/* ── Stock actual + Agregar stock ── */}
-      <div className="product-detail-section flex flex-col gap-3">
+      {/* ── Stock actual + opciones de ajuste ── */}
+      <div className="product-detail-section flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <p className="text-[12px] font-bold tracking-[0.10em] text-(--ink-3) uppercase">Stock</p>
           <span className="text-[13px] font-semibold text-(--ink-0)">
             {product.stock.totalQuantity} unidades actuales
           </span>
         </div>
+
+        {/* Agregar stock (additive) */}
         <div>
           <label className="store-form-label" htmlFor={`stock${idSuffix}`}>
             Agregar al Stock
@@ -186,8 +190,41 @@ function EditForm({ product, categories }: { product: ProductView; categories: C
             className="store-input"
             placeholder="Ej: 10 — se suma al stock actual"
             value={additionalStock}
-            onChange={(e) => setAdditionalStock(e.target.value)}
+            onChange={(e) => {
+              setAdditionalStock(e.target.value)
+              if (e.target.value) setCorrectStockValue('')
+            }}
           />
+        </div>
+
+        {/* Divisor */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
+          <span className="text-[11px] font-semibold tracking-[0.10em] text-(--ink-3) uppercase">o</span>
+          <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
+        </div>
+
+        {/* Corregir stock (absolute) */}
+        <div>
+          <label className="store-form-label" htmlFor={`correctStock${idSuffix}`}>
+            Corregir Stock
+          </label>
+          <input
+            id={`correctStock${idSuffix}`}
+            type="number"
+            min="0"
+            step="1"
+            className="store-input"
+            placeholder="Ej: 12 — reemplaza el stock actual"
+            value={correctStockValue}
+            onChange={(e) => {
+              setCorrectStockValue(e.target.value)
+              if (e.target.value) setAdditionalStock('')
+            }}
+          />
+          <p className="mt-1.5 text-[11px] text-(--ink-3) leading-snug">
+            Usá esto solo para corregir errores. El stock quedará exactamente en el número que ingreses.
+          </p>
         </div>
       </div>
 

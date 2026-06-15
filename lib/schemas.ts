@@ -96,6 +96,11 @@ export const updateProductSchema = z.object({
   currency:        z.string().max(3).default('MXN'),
   // additionalStock: amount to ADD to existing stock (backend @Min(1), only sent if > 0)
   additionalStock: z.coerce.number().int().min(0).default(0),
+  // correctStock: set stock to an ABSOLUTE value — takes priority over additionalStock when present
+  correctStock: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z.coerce.number().int().min(0).optional(),
+  ),
   // wantsPause: triggers PATCH /api/products/{id}/pause or /resume (reversible, product stays in list)
   wantsPause: z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false),
 })

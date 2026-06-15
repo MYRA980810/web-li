@@ -1,7 +1,9 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { createProductSchema, updateProductSchema } from './schemas'
+import { refreshAccessToken } from './session'
 import type { ProductView, Category } from './types'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
@@ -18,6 +20,28 @@ async function parseProblemDetail(res: Response): Promise<string> {
 async function getToken(): Promise<string | null> {
   const cookieStore = await cookies()
   return cookieStore.get('session')?.value ?? null
+}
+
+// Wraps fetch with automatic token refresh on TOKEN_EXPIRED.
+// Retries the request once with the new token; if refresh fails, redirects to /login.
+async function fetchWithAuth(url: string, init: RequestInit, token: string): Promise<Response> {
+  const withBearer = (t: string): RequestInit => ({
+    ...init,
+    headers: { ...(init.headers as Record<string, string> ?? {}), Authorization: `Bearer ${t}` },
+  })
+
+  const res = await fetch(url, withBearer(token))
+  if (res.status !== 401) return res
+
+  const clone = res.clone()
+  let code: string | undefined
+  try { code = ((await clone.json()) as { code?: string }).code } catch { /* empty */ }
+  if (code !== 'TOKEN_EXPIRED') return res
+
+  const newToken = await refreshAccessToken()
+  if (!newToken) redirect('/login')
+
+  return fetch(url, withBearer(newToken))
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -138,12 +162,9 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       imageUrls = ((await mediaRes.json()) as { urls: string[] }).urls
     }
 
-    const productRes = await fetch(`${API}/api/products`, {
+    const productRes = await fetchWithAuth(`${API}/api/products`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name,
         categoryId,
@@ -152,7 +173,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
         currency,
         images: imageUrls.map((url, idx) => ({ url, position: idx, primary: idx === 0 })),
       }),
-    })
+    }, token)
 
     if (!productRes.ok) {
       const error = await parseProblemDetail(productRes)
@@ -204,6 +225,7 @@ export async function updateProduct(
     basePrice:       formData.get('basePrice'),
     currency:        formData.get('currency') || undefined,
     additionalStock: formData.get('additionalStock'),
+    correctStock:    formData.get('correctStock') || undefined,
     // active is handled separately via PATCH /deactivate — not part of PUT body
     wantsPause: formData.get('wantsPause'),
   })
@@ -223,6 +245,7 @@ export async function updateProduct(
     basePrice,
     currency,
     additionalStock,
+    correctStock,
     wantsPause,
   } = parsed.data
 
@@ -253,12 +276,9 @@ export async function updateProduct(
 
     // 2. Update product fields (PUT /api/products/{id})
     // Note: UpdateProductRequest does NOT include `active` — handled via PATCH /deactivate
-    const productRes = await fetch(`${API}/api/products/${productId}`, {
+    const productRes = await fetchWithAuth(`${API}/api/products/${productId}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name,
         ...(categoryId ? { categoryId } : {}),
@@ -266,7 +286,7 @@ export async function updateProduct(
         basePrice,
         currency,
       }),
-    })
+    }, token)
 
     if (!productRes.ok) {
       const error = await parseProblemDetail(productRes)
@@ -315,21 +335,27 @@ export async function updateProduct(
       }
     }
 
-    // 6. Add stock if user entered a positive amount — best-effort
-    // Backend AddStockRequest requires quantity >= 1 (additive, not absolute)
-    if (additionalStock && additionalStock > 0) {
+    // 6. Stock update — correctStock (PATCH, absolute) takes priority over additionalStock (POST, additive)
+    const stockUrl = `${API}/api/products/${productId}/variants/${variantId}/stock`
+    if (correctStock !== undefined) {
+      // Blocking: user is intentionally correcting an error — surface failures
+      const stockRes = await fetch(stockUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ availableQuantity: correctStock }),
+      })
+      if (!stockRes.ok) {
+        const error = await parseProblemDetail(stockRes)
+        return { ok: false, error }
+      }
+    } else if (additionalStock > 0) {
+      // Best-effort: add to existing stock
       try {
-        await fetch(
-          `${API}/api/products/${productId}/variants/${variantId}/stock`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ quantity: additionalStock }),
-          },
-        )
+        await fetch(stockUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ quantity: additionalStock }),
+        })
       } catch {
         // non-blocking
       }

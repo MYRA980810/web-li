@@ -1,6 +1,6 @@
 'use server'
 
-import { setSessionCookie } from './session'
+import { setSessionCookie, setRefreshTokenCookie, extractRefreshTokenFromSetCookie } from './session'
 import {
   registerSchema,
   verifyOtpSchema,
@@ -25,6 +25,11 @@ export type RegisterResult =
 export type ActionResult =
   | { ok: true }
   | { ok: false; error: string }
+
+async function storeRefreshToken(res: Response): Promise<void> {
+  const raw = extractRefreshTokenFromSetCookie(res)
+  if (raw) await setRefreshTokenCookie(raw)
+}
 
 async function parseProblemDetail(res: Response): Promise<string> {
   try {
@@ -102,6 +107,7 @@ export async function verifyOtp(
 
   const data = await res.json()
   await setSessionCookie(data.accessToken)
+  await storeRefreshToken(res)
 
   return { ok: true }
 }
@@ -131,6 +137,7 @@ export async function loginUser(payload: LoginInput): Promise<ActionResult> {
 
   const data = await res.json()
   await setSessionCookie(data.accessToken)
+  await storeRefreshToken(res)
 
   return { ok: true }
 }
@@ -226,6 +233,7 @@ export async function resetPassword(payload: ResetPasswordInput): Promise<Action
 
   const data = await res.json()
   await setSessionCookie(data.accessToken)
+  await storeRefreshToken(res)
 
   return { ok: true }
 }
@@ -271,6 +279,7 @@ export async function completeGoogleAuth(
 
   const data = await res.json()
   await setSessionCookie(data.accessToken)
+  await storeRefreshToken(res)
 
   return { ok: true }
 }

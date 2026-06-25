@@ -1,48 +1,8 @@
 'use server'
 
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { createProductSchema, updateProductSchema } from './schemas'
-import { refreshAccessToken } from './session'
+import { API, parseProblemDetail, requireToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
 import type { ProductView, Category } from './types'
-
-const API = process.env.API_URL ?? 'http://localhost:8080'
-
-async function parseProblemDetail(res: Response): Promise<string> {
-  try {
-    const data = await res.json()
-    return data.detail ?? data.message ?? 'Ocurrió un error inesperado'
-  } catch {
-    return 'Ocurrió un error inesperado'
-  }
-}
-
-async function getToken(): Promise<string | null> {
-  const cookieStore = await cookies()
-  return cookieStore.get('session')?.value ?? null
-}
-
-// Wraps fetch with automatic token refresh on TOKEN_EXPIRED.
-// Retries the request once with the new token; if refresh fails, redirects to /login.
-async function fetchWithAuth(url: string, init: RequestInit, token: string): Promise<Response> {
-  const withBearer = (t: string): RequestInit => ({
-    ...init,
-    headers: { ...(init.headers as Record<string, string> ?? {}), Authorization: `Bearer ${t}` },
-  })
-
-  const res = await fetch(url, withBearer(token))
-  if (res.status !== 401) return res
-
-  const clone = res.clone()
-  let code: string | undefined
-  try { code = ((await clone.json()) as { code?: string }).code } catch { /* empty */ }
-  if (code !== 'TOKEN_EXPIRED') return res
-
-  const newToken = await refreshAccessToken()
-  if (!newToken) redirect('/login')
-
-  return fetch(url, withBearer(newToken))
-}
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -53,8 +13,7 @@ export type ProductQueryParams = {
 }
 
 export async function getMyProducts(params?: ProductQueryParams): Promise<ProductView[]> {
-  const token = await getToken()
-  if (!token) return []
+  const token = await requireToken()
   try {
     const qs = new URLSearchParams()
     if (params?.sort) qs.set('sort', params.sort)
@@ -62,23 +21,23 @@ export async function getMyProducts(params?: ProductQueryParams): Promise<Produc
     if (params?.stockLevel && params.stockLevel !== 'ALL') qs.set('stockLevel', params.stockLevel)
 
     const query = qs.toString()
-    const res = await fetch(`${API}/api/products/me${query ? `?${query}` : ''}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await fetchWithAuth(`${API}/api/products/me${query ? `?${query}` : ''}`, {
+      headers: {},
+    }, token)
     if (!res.ok) return []
     return res.json() as Promise<ProductView[]>
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return []
   }
 }
 
 export async function getMyCategories(): Promise<Category[]> {
-  const token = await getToken()
-  if (!token) return []
+  const token = await requireToken()
   try {
-    const res = await fetch(`${API}/api/products/me/categories`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await fetchWithAuth(`${API}/api/products/me/categories`, {
+      headers: {},
+    }, token)
     if (!res.ok) {
       const body = await res.text()
       console.error(`[getMyCategories] ${res.status} ${res.statusText}:`, body)
@@ -87,6 +46,7 @@ export async function getMyCategories(): Promise<Category[]> {
     const data: Category[] = await res.json()
     return data
   } catch (err) {
+    if (isNextInternalError(err)) throw err
     console.error('[getMyCategories] fetch error:', err)
     return []
   }
@@ -134,8 +94,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     return { ok: false, error: first ?? 'Datos inválidos' }
   }
 
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   const { name, categoryId, description, basePrice, currency, stock } = parsed.data
 
@@ -148,11 +107,10 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       imageFiles.forEach((f) => mediaForm.append('files', f))
       mediaForm.append('context', 'products')
 
-      const mediaRes = await fetch(`${API}/api/media/images/batch`, {
+      const mediaRes = await fetchWithAuth(`${API}/api/media/images/batch`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: mediaForm,
-      })
+      }, token)
 
       if (!mediaRes.ok) {
         const error = await parseProblemDetail(mediaRes)
@@ -186,25 +144,24 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
       const defaultVariant = product.variants.find((v) => v.isDefault)
       if (defaultVariant) {
         try {
-          await fetch(
+          await fetchWithAuth(
             `${API}/api/products/${product.id}/variants/${defaultVariant.id}/stock`,
             {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ quantity: stock }),
             },
+            token,
           )
-        } catch {
-          // non-blocking
+        } catch (err) {
+          if (isNextInternalError(err)) throw err
         }
       }
     }
 
     return { ok: true, product }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
@@ -235,8 +192,7 @@ export async function updateProduct(
     return { ok: false, error: first ?? 'Datos inválidos' }
   }
 
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   const {
     name,
@@ -250,7 +206,6 @@ export async function updateProduct(
   } = parsed.data
 
   try {
-    // 1. Upload new images batch
     const imageFiles = (formData.getAll('images') as File[]).filter((f) => f.size > 0)
     const deletedImageIds = formData.getAll('deletedImageIds') as string[]
 
@@ -260,11 +215,10 @@ export async function updateProduct(
       imageFiles.forEach((f) => mediaForm.append('files', f))
       mediaForm.append('context', 'products')
 
-      const mediaRes = await fetch(`${API}/api/media/images/batch`, {
+      const mediaRes = await fetchWithAuth(`${API}/api/media/images/batch`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: mediaForm,
-      })
+      }, token)
 
       if (!mediaRes.ok) {
         const error = await parseProblemDetail(mediaRes)
@@ -274,8 +228,6 @@ export async function updateProduct(
       newImageUrls = ((await mediaRes.json()) as { urls: string[] }).urls
     }
 
-    // 2. Update product fields (PUT /api/products/{id})
-    // Note: UpdateProductRequest does NOT include `active` — handled via PATCH /deactivate
     const productRes = await fetchWithAuth(`${API}/api/products/${productId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -293,76 +245,66 @@ export async function updateProduct(
       return { ok: false, error }
     }
 
-    // 3. Pause or resume (PATCH /api/products/{id}/pause|resume) — reversible, product stays in list
     try {
-      await fetch(`${API}/api/products/${productId}/${wantsPause ? 'pause' : 'resume'}`, {
+      await fetchWithAuth(`${API}/api/products/${productId}/${wantsPause ? 'pause' : 'resume'}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    } catch {
-      // non-blocking
+        headers: {},
+      }, token)
+    } catch (err) {
+      if (isNextInternalError(err)) throw err
     }
 
-    // 4. Delete removed images — best-effort, parallel
     if (deletedImageIds.length > 0) {
       await Promise.allSettled(
         deletedImageIds.map((imageId) =>
-          fetch(`${API}/api/products/${productId}/images/${imageId}`, {
+          fetchWithAuth(`${API}/api/products/${productId}/images/${imageId}`, {
             method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          })
+            headers: {},
+          }, token)
         )
       )
     }
 
-    // 5. Associate new images via batch — best-effort
-    // primary: false because the backend automatically assigns primary to the next image
-    // when the previous primary is deleted.
     if (newImageUrls.length > 0) {
       try {
-        await fetch(`${API}/api/products/${productId}/images/batch`, {
+        await fetchWithAuth(`${API}/api/products/${productId}/images/batch`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             images: newImageUrls.map((url, idx) => ({ url, position: idx, primary: false })),
           }),
-        })
-      } catch {
-        // non-blocking
+        }, token)
+      } catch (err) {
+        if (isNextInternalError(err)) throw err
       }
     }
 
-    // 6. Stock update — correctStock (PATCH, absolute) takes priority over additionalStock (POST, additive)
     const stockUrl = `${API}/api/products/${productId}/variants/${variantId}/stock`
     if (correctStock !== undefined) {
-      // Blocking: user is intentionally correcting an error — surface failures
-      const stockRes = await fetch(stockUrl, {
+      const stockRes = await fetchWithAuth(stockUrl, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availableQuantity: correctStock }),
-      })
+      }, token)
       if (!stockRes.ok) {
         const error = await parseProblemDetail(stockRes)
         return { ok: false, error }
       }
     } else if (additionalStock > 0) {
-      // Best-effort: add to existing stock
       try {
-        await fetch(stockUrl, {
+        await fetchWithAuth(stockUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quantity: additionalStock }),
-        })
-      } catch {
-        // non-blocking
+        }, token)
+      } catch (err) {
+        if (isNextInternalError(err)) throw err
       }
     }
 
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
@@ -373,14 +315,13 @@ export async function deleteProductImage(
   productId: string,
   imageId: string,
 ): Promise<DeleteProductImageResult> {
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/products/${productId}/images/${imageId}`, {
+    const res = await fetchWithAuth(`${API}/api/products/${productId}/images/${imageId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+      headers: {},
+    }, token)
 
     if (!res.ok) {
       const error = await parseProblemDetail(res)
@@ -388,7 +329,8 @@ export async function deleteProductImage(
     }
 
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
@@ -399,15 +341,14 @@ export async function addProductImagesBatch(
   productId: string,
   images: Array<{ url: string; position: number; primary: boolean }>,
 ): Promise<AddProductImagesBatchResult> {
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/products/${productId}/images/batch`, {
+    const res = await fetchWithAuth(`${API}/api/products/${productId}/images/batch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ images }),
-    })
+    }, token)
 
     if (!res.ok) {
       const error = await parseProblemDetail(res)
@@ -415,7 +356,8 @@ export async function addProductImagesBatch(
     }
 
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
@@ -423,20 +365,20 @@ export async function addProductImagesBatch(
 export type PauseProductResult = { ok: true } | { ok: false; error: string }
 
 export async function pauseProduct(productId: string): Promise<PauseProductResult> {
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/products/${productId}/pause`, {
+    const res = await fetchWithAuth(`${API}/api/products/${productId}/pause`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+      headers: {},
+    }, token)
     if (!res.ok) {
       const error = await parseProblemDetail(res)
       return { ok: false, error }
     }
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
@@ -444,20 +386,20 @@ export async function pauseProduct(productId: string): Promise<PauseProductResul
 export type ResumeProductResult = { ok: true } | { ok: false; error: string }
 
 export async function resumeProduct(productId: string): Promise<ResumeProductResult> {
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/products/${productId}/resume`, {
+    const res = await fetchWithAuth(`${API}/api/products/${productId}/resume`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+      headers: {},
+    }, token)
     if (!res.ok) {
       const error = await parseProblemDetail(res)
       return { ok: false, error }
     }
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
@@ -467,14 +409,13 @@ export type DeactivateProductResult =
   | { ok: false; error: string }
 
 export async function deactivateProduct(productId: string): Promise<DeactivateProductResult> {
-  const token = await getToken()
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/products/${productId}/deactivate`, {
+    const res = await fetchWithAuth(`${API}/api/products/${productId}/deactivate`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+      headers: {},
+    }, token)
 
     if (!res.ok) {
       const error = await parseProblemDetail(res)
@@ -482,7 +423,8 @@ export async function deactivateProduct(productId: string): Promise<DeactivatePr
     }
 
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }

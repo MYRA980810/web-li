@@ -85,15 +85,19 @@ export async function refreshAccessToken(): Promise<string | null> {
     })
 
     if (!res.ok) {
-      await clearSessionCookies()
+      try { await clearSessionCookies() } catch { /* read-only cookie context */ }
       return null
     }
 
     const data = (await res.json()) as { accessToken: string }
-    await setSessionCookie(data.accessToken)
 
-    const newRaw = extractRefreshTokenFromSetCookie(res)
-    if (newRaw) await setRefreshTokenCookie(newRaw)
+    // cookies().set() throws in Server Component renders (read-only context).
+    // Wrap so the token is still returned for the current request's retry.
+    try {
+      await setSessionCookie(data.accessToken)
+      const newRaw = extractRefreshTokenFromSetCookie(res)
+      if (newRaw) await setRefreshTokenCookie(newRaw)
+    } catch { /* Server Component context — cookies are read-only */ }
 
     return data.accessToken
   } catch {

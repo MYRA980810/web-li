@@ -1,27 +1,13 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { StoreManageScreen } from './_components/StoreManageScreen'
-import type { StoreResponse } from '@/lib/storeActions'
-
-const API = process.env.API_URL ?? 'http://localhost:8080'
-
-async function getMyStore(token: string): Promise<StoreResponse | null> {
-  try {
-    const res = await fetch(`${API}/api/stores/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) return null
-    return res.json() as Promise<StoreResponse>
-  } catch {
-    return null
-  }
-}
+import { getMyStore } from '@/lib/storeActions'
 
 export default async function StoreManagePage() {
   const cookieStore = await cookies()
   const token = cookieStore.get('session')?.value ?? ''
   if (!token) redirect('/login')
-  const store = await getMyStore(token)
+  const store = await getMyStore()
   if (!store) redirect('/store')
   return <StoreManageScreen store={store} />
 }

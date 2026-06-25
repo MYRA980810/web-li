@@ -1,28 +1,15 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createStoreSchema, type CreateStoreInput, updateStoreSchema, type UpdateStoreInput } from './schemas'
-
-const API = process.env.API_URL ?? 'http://localhost:8080'
-
-async function parseProblemDetail(res: Response): Promise<string> {
-  try {
-    const data = await res.json()
-    return data.detail ?? data.message ?? 'Ocurrió un error inesperado'
-  } catch {
-    return 'Ocurrió un error inesperado'
-  }
-}
+import { API, parseProblemDetail, requireToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
 
 export type UploadLogoResult =
   | { ok: true; url: string }
   | { ok: false; error: string }
 
 export async function uploadStoreLogo(formData: FormData): Promise<UploadLogoResult> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('session')?.value
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   const file = formData.get('file') as File | null
   if (!file) return { ok: false, error: 'No se seleccionó ningún archivo' }
@@ -33,12 +20,12 @@ export async function uploadStoreLogo(formData: FormData): Promise<UploadLogoRes
 
   let res: Response
   try {
-    res = await fetch(`${API}/api/media/images`, {
+    res = await fetchWithAuth(`${API}/api/media/images`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
       body: outbound,
-    })
-  } catch {
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -75,21 +62,17 @@ export async function createStore(payload: CreateStoreInput): Promise<CreateStor
     return { ok: false, error: first ?? 'Datos inválidos' }
   }
 
-  const cookieStore = await cookies()
-  const token = cookieStore.get('session')?.value
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   let res: Response
   try {
-    res = await fetch(`${API}/api/stores`, {
+    res = await fetchWithAuth(`${API}/api/stores`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parsed.data),
-    })
-  } catch {
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -113,21 +96,17 @@ export async function updateStore(input: UpdateStoreInput): Promise<UpdateStoreR
     return { ok: false, error: first ?? 'Datos inválidos' }
   }
 
-  const cookieStore = await cookies()
-  const token = cookieStore.get('session')?.value
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   let res: Response
   try {
-    res = await fetch(`${API}/api/stores/me`, {
+    res = await fetchWithAuth(`${API}/api/stores/me`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parsed.data),
-    })
-  } catch {
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -141,20 +120,18 @@ export async function updateStore(input: UpdateStoreInput): Promise<UpdateStoreR
 }
 
 export async function setStoreActive(active: boolean): Promise<{ ok: boolean; error?: string }> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('session')?.value
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
-  // Reactivate: POST /me/reactivate — Deactivate permanently: DELETE /me
   const endpoint = `${API}/api/stores/me${active ? '/reactivate' : ''}`
 
   let res: Response
   try {
-    res = await fetch(endpoint, {
+    res = await fetchWithAuth(endpoint, {
       method: active ? 'POST' : 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-  } catch {
+      headers: {},
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -167,15 +144,13 @@ export async function setStoreActive(active: boolean): Promise<{ ok: boolean; er
 }
 
 export async function closeStoreTemporarily(): Promise<{ ok: boolean; error?: string }> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('session')?.value
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/stores/me/close`, {
+    const res = await fetchWithAuth(`${API}/api/stores/me/close`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+      headers: {},
+    }, token)
     if (!res.ok) {
       const error = await parseProblemDetail(res)
       return { ok: false, error }
@@ -183,21 +158,20 @@ export async function closeStoreTemporarily(): Promise<{ ok: boolean; error?: st
     revalidatePath('/store')
     revalidatePath('/store/manage')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 }
 
 export async function reopenStore(): Promise<{ ok: boolean; error?: string }> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('session')?.value
-  if (!token) return { ok: false, error: 'No autenticado' }
+  const token = await requireToken()
 
   try {
-    const res = await fetch(`${API}/api/stores/me/reopen`, {
+    const res = await fetchWithAuth(`${API}/api/stores/me/reopen`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+      headers: {},
+    }, token)
     if (!res.ok) {
       const error = await parseProblemDetail(res)
       return { ok: false, error }
@@ -205,7 +179,22 @@ export async function reopenStore(): Promise<{ ok: boolean; error?: string }> {
     revalidatePath('/store')
     revalidatePath('/store/manage')
     return { ok: true }
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
     return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+}
+
+export async function getMyStore(): Promise<StoreResponse | null> {
+  const token = await requireToken()
+  try {
+    const res = await fetchWithAuth(`${API}/api/stores/me`, {
+      headers: {},
+    }, token)
+    if (!res.ok) return null
+    return res.json() as Promise<StoreResponse>
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return null
   }
 }

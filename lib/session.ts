@@ -59,11 +59,21 @@ export async function getSessionPayload(): Promise<SessionPayload | null> {
 // Extracts the raw refresh_token value from a Spring Boot Set-Cookie header.
 export function extractRefreshTokenFromSetCookie(res: Response): string | null {
   try {
-    const setCookies = res.headers.getSetCookie()
-    const match = setCookies
-      .map((h) => h.match(/^refresh_token=([^;]+)/))
-      .find(Boolean)
-    return match?.[1] ?? null
+    // Prefer getSetCookie() — handles multiple Set-Cookie headers correctly
+    const h = res.headers as Headers & { getSetCookie?: () => string[] }
+    if (typeof h.getSetCookie === 'function') {
+      for (const cookie of h.getSetCookie()) {
+        const match = cookie.match(/^refresh_token=([^;]+)/)
+        if (match?.[1]) return match[1]
+      }
+    }
+    // Fallback: get('set-cookie') returns a single string (possibly comma-joined)
+    const raw = res.headers.get('set-cookie')
+    if (raw) {
+      const match = raw.match(/(?:^|,\s*)refresh_token=([^;,\s]+)/)
+      if (match?.[1]) return match[1]
+    }
+    return null
   } catch {
     return null
   }

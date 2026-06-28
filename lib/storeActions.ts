@@ -187,14 +187,7 @@ export async function reopenStore(): Promise<{ ok: boolean; error?: string }> {
 
 export async function getMyStore(): Promise<StoreResponse | null> {
   const token = await requireToken()
-  try {
-    const res = await fetchWithAuth(`${API}/api/stores/me`, {
-      headers: {},
-    }, token)
-    if (!res.ok) return null
-    return res.json() as Promise<StoreResponse>
-  } catch (err) {
-    if (isNextInternalError(err)) throw err
-    return null
-  }
+  const res = await fetchWithAuth(`${API}/api/stores/me`, { headers: {} }, token)
+  if (!res.ok) return null
+  return res.json() as Promise<StoreResponse>
 }

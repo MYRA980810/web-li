@@ -118,7 +118,13 @@ export function SellerBottomNav({ active }: Props) {
         <span className="text-[10px] font-semibold tracking-[0.12em]">Store</span>
       </button>
 
-      <button className="bottom-nav-live" aria-label="Live">⚡</button>
+      <button
+        className="bottom-nav-live"
+        onClick={() => router.push('/live/setup')}
+        aria-label="Iniciar Live"
+      >
+        ⚡
+      </button>
 
       <button
         className={`bottom-nav-item${active === 'ventas' ? ' active' : ''}`}

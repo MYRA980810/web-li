@@ -106,3 +106,12 @@ export const updateProductSchema = z.object({
 })
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>
+
+export const createLiveSchema = z.object({
+  title:                  z.string().min(1, 'El título de la sesión es requerido').max(255),
+  displayDurationSeconds: z.number().int().min(15).max(120).default(60),
+  context:                z.enum(['STORE', 'SELLER_PROFILE']),
+  storeId:                z.string().uuid().optional(),
+})
+
+export type CreateLiveInput = z.infer<typeof createLiveSchema>

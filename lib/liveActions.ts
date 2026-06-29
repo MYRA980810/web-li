@@ -237,6 +237,93 @@ export async function endLive(liveId: string): Promise<EndLiveResult> {
   return { ok: true, live: live as LiveResponse }
 }
 
+// ─── getChatToken ─────────────────────────────────────────────────────────────
+
+export type ChatTokenData = {
+  token: string
+  channelName: string
+  appId: string
+  rtmUid: string
+}
+
+export type GetChatTokenResult =
+  | { ok: true;  data: ChatTokenData }
+  | { ok: false; error: string }
+
+function extractSubFromJwt(jwt: string): string | null {
+  try {
+    const part = jwt.split('.')[1]
+    if (!part) return null
+    const payload = JSON.parse(Buffer.from(part, 'base64url').toString('utf8'))
+    return (payload.sub as string) ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function getChatToken(liveId: string): Promise<GetChatTokenResult> {
+  const token  = await requireToken()
+  const rtmUid = extractSubFromJwt(token)
+  if (!rtmUid) return { ok: false, error: 'No se pudo obtener la identidad del usuario' }
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/${liveId}/rtm/token`, { method: 'GET' }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = (await res.json()) as { token: string; channelName: string; appId: string }
+  return { ok: true, data: { ...data, rtmUid } }
+}
+
+// ─── getChatHistory ───────────────────────────────────────────────────────────
+
+export type ChatHistoryMessage = {
+  id: string
+  userId: string
+  username: string
+  content: string
+  sentAt: string
+}
+
+export type GetChatHistoryResult =
+  | { ok: true;  messages: ChatHistoryMessage[] }
+  | { ok: false; error: string }
+
+export async function getChatHistory(liveId: string, limit = 50, before?: string): Promise<GetChatHistoryResult> {
+  const token = await requireToken()
+
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (before) params.set('before', before)
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(
+      `${API}/api/lives/${liveId}/rtm/history?${params}`,
+      { method: 'GET' },
+      token,
+    )
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const messages = (await res.json()) as ChatHistoryMessage[]
+  return { ok: true, messages }
+}
+
 // ─── startLive ────────────────────────────────────────────────────────────────
 
 export type StartLiveResult =

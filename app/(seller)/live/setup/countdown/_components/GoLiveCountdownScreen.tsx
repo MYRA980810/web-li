@@ -25,8 +25,8 @@ type Props = { liveId: string }
 export function GoLiveCountdownScreen({ liveId }: Props) {
   const router = useRouter()
 
-  const rtcUid = useRef<string>(
-    crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+  const rtcUid = useRef<number>(
+    Math.floor(Math.random() * 4294967294) + 1,
   )
 
   const [count, setCount]               = useState(3)
@@ -47,7 +47,7 @@ export function GoLiveCountdownScreen({ liveId }: Props) {
     if (startedRef.current) return
     startedRef.current = true
 
-    startLive(liveId, rtcUid.current).then((result) => {
+    startLive(liveId, String(rtcUid.current)).then((result) => {
       if (result.ok) setLive(result.live)
       else { setFatalError(result.error); setPhase('error') }
     })

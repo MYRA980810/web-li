@@ -1,25 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ICameraVideoTrack } from 'agora-rtc-sdk-ng'
 import type { LiveResponse } from '@/lib/liveActions'
+import { useLiveChat, type ProductPinnedEvent, type StockUpdateEvent } from '@/hooks/useLiveChat'
 import { LiveStockDrawer, type LiveProduct } from './LiveStockDrawer'
 import { LiveAddProductDrawer } from './LiveAddProductDrawer'
 import { ProductCountdown } from './ProductCountdown'
-
-type ChatMessage = {
-  id: string
-  user: string
-  role?: 'mod'
-  text: string
-  color: string
-}
-
-const MOCK_MESSAGES: ChatMessage[] = [
-  { id: '1', user: 'Valentina M.', text: '¡Me encanta el diseño! 😊', color: '#a78bfa' },
-  { id: '2', user: 'Roberto C.',   text: '¿Talla M disponible?',       color: '#22d3ee' },
-  { id: '3', user: 'Ana L.',       text: '@Roberto sí, quedan solo 3.', color: '#ff3d96', role: 'mod' },
-]
 
 export type SellerLiveBroadcastProps = {
   live: LiveResponse
@@ -30,22 +17,46 @@ export type SellerLiveBroadcastProps = {
 
 export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: SellerLiveBroadcastProps) {
   const [replyText,      setReplyText]      = useState('')
-  const [messages]                          = useState<ChatMessage[]>(MOCK_MESSAGES)
-  const [viewers]                           = useState(1240)
   const [revenue]                           = useState(15800)
   const [stockOpen,      setStockOpen]      = useState(false)
   const [addProductOpen, setAddProductOpen] = useState(false)
   const [featured,       setFeatured]       = useState<LiveProduct | null>(null)
+
+  const { messages, sendMessage, isConnected, isSending, viewerCount } = useLiveChat(live.id, {
+    onStockUpdate: ({ liveProductId, stockRemaining }: StockUpdateEvent) => {
+      setFeatured((prev) =>
+        prev?.id === liveProductId ? { ...prev, stock: stockRemaining } : prev,
+      )
+    },
+    onProductPinned: (_event: ProductPinnedEvent) => {
+      // Seller already sees the pinned product via the local onLaunch callback.
+      // This event is primarily for buyer clients.
+    },
+  })
+
+  const chatBottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!videoTrack) return
     videoTrack.play('agora-live-video', { fit: 'cover' })
   }, [videoTrack])
 
-  const formattedViewers =
-    viewers >= 1000
-      ? `${(viewers / 1000).toFixed(1)}k`
-      : String(viewers)
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  async function handleSend() {
+    if (!replyText.trim() || isSending) return
+    const text = replyText
+    setReplyText('')
+    await sendMessage(text)
+  }
+
+  const formattedViewers = viewerCount === null
+    ? '—'
+    : viewerCount >= 1000
+      ? `${(viewerCount / 1000).toFixed(1)}k`
+      : String(viewerCount)
 
   const formattedRevenue = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -112,20 +123,22 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
 
       {/* ── Chat messages ── */}
       <div className="seller-live-chat" aria-live="polite" aria-label="Chat de la transmisión">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`seller-live-msg${msg.role === 'mod' ? ' is-mod' : ''}`}
-          >
-            <span className="seller-live-msg-user" style={{ color: msg.color }}>
-              {msg.user}
+        {messages.length === 0 && (
+          <div className="seller-live-msg">
+            <span className="seller-live-msg-text" style={{ opacity: 0.45 }}>
+              {isConnected ? 'Aún no hay mensajes.' : 'Esperando mensajes...'}
             </span>
-            {msg.role === 'mod' && (
-              <span className="seller-live-msg-role">(Mod)</span>
-            )}
-            <span className="seller-live-msg-text">{msg.text}</span>
+          </div>
+        )}
+        {messages.map((msg) => (
+          <div key={msg.id} className="seller-live-msg">
+            <span className="seller-live-msg-user" style={{ color: msg.color }}>
+              {msg.username}
+            </span>
+            <span className="seller-live-msg-text">{msg.content}</span>
           </div>
         ))}
+        <div ref={chatBottomRef} />
       </div>
 
       {/* ── Product showcase (visible only after first LANZAR) ── */}
@@ -190,12 +203,22 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
           placeholder="Responde a tu audiencia..."
           value={replyText}
           onChange={(e) => setReplyText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+          }}
           aria-label="Responder al chat"
+          disabled={isSending}
         />
         <button className="seller-live-emoji-btn" aria-label="Emoji" type="button">
           😊
         </button>
-        <button className="seller-live-send-btn" aria-label="Enviar mensaje" type="button">
+        <button
+          className="seller-live-send-btn"
+          aria-label="Enviar mensaje"
+          type="button"
+          onClick={handleSend}
+          disabled={isSending || !replyText.trim()}
+        >
           <svg width="17" height="16" viewBox="0 0 17 16" fill="none" aria-hidden>
             <path
               d="M2.5 8H14.5M14.5 8L9.5 3M14.5 8L9.5 13"

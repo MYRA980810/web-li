@@ -27,7 +27,6 @@ export function GoLiveSetupScreen({ storeId }: Props) {
   const [title, setTitle]         = useState('')
   const [deployIdx, setDeployIdx] = useState(2)
   const [beautyAI, setBeautyAI]   = useState(true)
-  const [productCount]            = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError]         = useState<string | null>(null)
 
@@ -111,15 +110,31 @@ export function GoLiveSetupScreen({ storeId }: Props) {
       <div className="px-5 mt-7 reveal d4">
         <span className="store-form-label">Inventario de Productos</span>
         <div className="live-inventory-grid">
-          <button className="live-inventory-upload" aria-label="Cargar productos" disabled={isLoading}>
-            <span className="live-inventory-icon">🛒</span>
-            <span className="live-inventory-label">Cargar</span>
+          <button className="live-inventory-card" aria-label="Cargar desde stock" disabled={isLoading}>
+            <span className="live-inventory-card-icon">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="5" rx="1"/>
+                <path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8"/>
+                <path d="M9 13h6M9 16h4"/>
+              </svg>
+            </span>
+            <span className="live-inventory-card-body">
+              <span className="live-inventory-card-title">Cargar desde Stock</span>
+              <span className="live-inventory-card-desc">Selecciona productos existentes de tu tienda</span>
+            </span>
           </button>
-          <div className="live-inventory-count">
-            <span className="live-inventory-count-icon">📦</span>
-            <span className="live-inventory-count-num">{productCount}</span>
-            <span className="live-inventory-count-label">Productos<br />Seleccionados</span>
-          </div>
+          <button className="live-inventory-card" aria-label="Añadir nuevo" disabled={isLoading}>
+            <span className="live-inventory-card-icon">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 8v8M8 12h8"/>
+              </svg>
+            </span>
+            <span className="live-inventory-card-body">
+              <span className="live-inventory-card-title">Añadir Nuevo</span>
+              <span className="live-inventory-card-desc">Carga productos manualmente si no tenés una tienda configurada</span>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -159,12 +174,14 @@ export function GoLiveSetupScreen({ storeId }: Props) {
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
 
-        <div className="live-setup-nav">
+        <div className="store-back-header">
           <button className="store-back-btn" onClick={() => router.back()} aria-label="Volver">
             ←
           </button>
-          <span className="live-setup-nav-title">Go Live Setup</span>
-          <button className="store-back-btn" aria-label="Configuración">⚙️</button>
+          <span className="absolute inset-0 flex items-center justify-center font-display font-bold text-[15px] text-(--ink-0) tracking-[0.06em] uppercase pointer-events-none">
+            Configuración de Live
+          </span>
+          <button className="home-nav-icon" aria-label="Configuración">⚙️</button>
         </div>
 
         {formBody('-m')}

@@ -66,6 +66,8 @@ export async function createLive(input: CreateLiveInput): Promise<CreateLiveResu
 
 // ─── Live product types ───────────────────────────────────────────────────────
 
+export type LiveProductStatus = 'AVAILABLE' | 'PINNED' | 'SOLD'
+
 export type LiveProductApiResponse = {
   id: string
   liveId: string
@@ -78,6 +80,7 @@ export type LiveProductApiResponse = {
   stockSold: number
   isHot: boolean
   isPinned: boolean
+  status: LiveProductStatus
   position: number
   imageUrl: string | null
 }
@@ -192,6 +195,39 @@ export async function pinLiveProduct(
   try {
     res = await fetchWithAuth(
       `${API}/api/lives/${liveId}/products/${productId}/pin`,
+      { method: 'POST' },
+      token,
+    )
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const product = await res.json()
+  return { ok: true, product: product as LiveProductApiResponse }
+}
+
+// ─── expirePinLiveProduct ───────────────────────────────────────────────────────
+
+export type ExpirePinLiveProductResult =
+  | { ok: true;  product: LiveProductApiResponse }
+  | { ok: false; error: string }
+
+export async function expirePinLiveProduct(
+  liveId: string,
+  productId: string,
+): Promise<ExpirePinLiveProductResult> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(
+      `${API}/api/lives/${liveId}/products/${productId}/expire-pin`,
       { method: 'POST' },
       token,
     )

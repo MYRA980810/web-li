@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Props = {
   durationSeconds: number
+  onExpire?: () => void
 }
 
-export function ProductCountdown({ durationSeconds }: Props) {
+export function ProductCountdown({ durationSeconds, onExpire }: Props) {
   const [remaining, setRemaining] = useState(durationSeconds)
+  const onExpireRef = useRef(onExpire)
+  onExpireRef.current = onExpire
 
   useEffect(() => {
     setRemaining(durationSeconds)
@@ -17,6 +20,10 @@ export function ProductCountdown({ durationSeconds }: Props) {
     }, 1000)
     return () => clearInterval(id)
   }, [durationSeconds])
+
+  useEffect(() => {
+    if (remaining === 0) onExpireRef.current?.()
+  }, [remaining])
 
   const pct      = durationSeconds > 0 ? (remaining / durationSeconds) * 100 : 0
   const isUrgent = remaining <= 5 && remaining > 0

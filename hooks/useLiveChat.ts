@@ -31,6 +31,11 @@ export type StockUpdateEvent = {
   stockRemaining: number
 }
 
+export type ProductExpiredEvent = {
+  liveProductId: string
+  status: 'AVAILABLE' | 'SOLD'
+}
+
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export type ChatMessage = {
@@ -43,8 +48,9 @@ export type ChatMessage = {
 }
 
 export type UseLiveChatOptions = {
-  onProductPinned?: (event: ProductPinnedEvent) => void
-  onStockUpdate?:   (event: StockUpdateEvent)   => void
+  onProductPinned?:  (event: ProductPinnedEvent)  => void
+  onStockUpdate?:    (event: StockUpdateEvent)    => void
+  onProductExpired?: (event: ProductExpiredEvent) => void
 }
 
 type UseLiveChatReturn = {
@@ -100,6 +106,12 @@ function handleSystemMessage(
       options.onStockUpdate?.({
         liveProductId:  payload.liveProductId  as string,
         stockRemaining: payload.stockRemaining as number,
+      })
+      return true
+    case 'product-expired':
+      options.onProductExpired?.({
+        liveProductId: payload.liveProductId as string,
+        status:        payload.status        as 'AVAILABLE' | 'SOLD',
       })
       return true
     default:

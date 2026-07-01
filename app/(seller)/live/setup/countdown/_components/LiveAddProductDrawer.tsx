@@ -64,6 +64,7 @@ export function LiveAddProductDrawer({ liveId, open, onClose, onSave }: Props) {
       stock:    api.stockAllocated - api.stockSold,
       isHot:    api.isHot,
       isPinned: api.isPinned,
+      status:   api.status,
       imageUrl: api.imageUrl,
     }
 

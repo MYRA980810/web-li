@@ -2,8 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ICameraVideoTrack } from 'agora-rtc-sdk-ng'
-import type { LiveResponse } from '@/lib/liveActions'
-import { useLiveChat, type ProductPinnedEvent, type StockUpdateEvent } from '@/hooks/useLiveChat'
+import { expirePinLiveProduct, type LiveResponse } from '@/lib/liveActions'
+import {
+  useLiveChat,
+  type ProductPinnedEvent,
+  type StockUpdateEvent,
+  type ProductExpiredEvent,
+} from '@/hooks/useLiveChat'
 import { LiveStockDrawer, type LiveProduct } from './LiveStockDrawer'
 import { LiveAddProductDrawer } from './LiveAddProductDrawer'
 import { ProductCountdown } from './ProductCountdown'
@@ -32,6 +37,9 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
       // Seller already sees the pinned product via the local onLaunch callback.
       // This event is primarily for buyer clients.
     },
+    onProductExpired: ({ liveProductId }: ProductExpiredEvent) => {
+      setFeatured((prev) => (prev?.id === liveProductId ? null : prev))
+    },
   })
 
   const chatBottomRef = useRef<HTMLDivElement>(null)
@@ -44,6 +52,12 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  function handleCountdownExpire() {
+    if (!featured) return
+    void expirePinLiveProduct(live.id, featured.id)
+    setFeatured(null)
+  }
 
   async function handleSend() {
     if (!replyText.trim() || isSending) return
@@ -166,6 +180,7 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
             <ProductCountdown
               key={featured.id}
               durationSeconds={live.displayDurationSeconds}
+              onExpire={handleCountdownExpire}
             />
           </div>
           <button

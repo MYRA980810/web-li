@@ -5,6 +5,7 @@ import {
   getLiveProducts,
   pinLiveProduct,
   type LiveProductApiResponse,
+  type LiveProductStatus,
 } from '@/lib/liveActions'
 
 export type LiveProduct = {
@@ -15,6 +16,7 @@ export type LiveProduct = {
   stock: number
   isHot: boolean
   isPinned: boolean
+  status: LiveProductStatus
   imageUrl?: string | null
 }
 
@@ -27,6 +29,7 @@ function mapProduct(api: LiveProductApiResponse): LiveProduct {
     stock:    api.stockAllocated - api.stockSold,
     isHot:    api.isHot,
     isPinned: api.isPinned,
+    status:   api.status,
     imageUrl: api.imageUrl,
   }
 }
@@ -40,9 +43,10 @@ type Props = {
 }
 
 export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct }: Props) {
-  const [products, setProducts] = useState<LiveProduct[]>([])
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [products,  setProducts]  = useState<LiveProduct[]>([])
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+  const [launchingId, setLaunchingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -60,10 +64,19 @@ export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct 
 
   if (!open) return null
 
-  function handleLaunch(product: LiveProduct) {
+  async function handleLaunch(product: LiveProduct) {
+    setError(null)
+    setLaunchingId(product.id)
+    const result = await pinLiveProduct(liveId, product.id)
+    setLaunchingId(null)
+
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+
     onLaunch?.(product)
     onClose()
-    void pinLiveProduct(liveId, product.id)
   }
 
   return (
@@ -132,7 +145,10 @@ export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct 
               {products.length === 0 ? (
                 <p className="live-stock-status-text">Sin productos cargados aún.</p>
               ) : products.map((product) => {
-                const hasStock = product.stock > 0
+                const isSold    = product.status === 'SOLD'
+                const isOnScreen = product.status === 'PINNED'
+                const hasStock  = product.stock > 0 && !isSold
+                const isLaunching = launchingId === product.id
                 return (
                   <div
                     key={product.id}
@@ -152,8 +168,11 @@ export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct 
                       {product.isHot && (
                         <span className="live-stock-hot-badge">HOT</span>
                       )}
+                      {isOnScreen && (
+                        <span className="live-stock-onscreen-badge">EN VIVO</span>
+                      )}
                       <div className={`live-stock-thumb-badge ${hasStock ? 'available' : 'sold-out'}`}>
-                        {hasStock ? `${product.stock} DISP` : 'SOLD OUT'}
+                        {isSold ? 'VENDIDO' : hasStock ? `${product.stock} DISP` : 'SIN STOCK'}
                       </div>
                     </div>
 
@@ -171,18 +190,25 @@ export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct 
                         className={`live-stock-launch-btn ${product.isHot ? 'hot' : 'normal'}`}
                         type="button"
                         onClick={() => handleLaunch(product)}
+                        disabled={isLaunching}
                         aria-label={`Lanzar ${product.name}`}
                       >
-                        <span className="live-stock-launch-icon" aria-hidden="true">🚀</span>
-                        <span className="live-stock-launch-text">Lanzar</span>
+                        <span className="live-stock-launch-icon" aria-hidden="true">
+                          {isLaunching ? '…' : '🚀'}
+                        </span>
+                        <span className="live-stock-launch-text">
+                          {isLaunching ? 'Lanzando' : 'Lanzar'}
+                        </span>
                       </button>
                     ) : (
-                      <div className="live-stock-nostock" aria-label="Sin stock disponible">
+                      <div className="live-stock-nostock" aria-label={isSold ? 'Producto vendido' : 'Sin stock disponible'}>
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
                           <rect x="4" y="10" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
                           <path d="M7 10V7a4 4 0 018 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
-                        <span className="live-stock-nostock-text">No Stock</span>
+                        <span className="live-stock-nostock-text">
+                          {isSold ? 'Vendido' : 'No Stock'}
+                        </span>
                       </div>
                     )}
                   </div>

@@ -1211,3 +1211,61 @@ input  { font-family: inherit; }
   color: var(--ink-4);
   letter-spacing: 0.12em;
 }
+
+/* ===== Live Hub (Centro de Transmisiones) ===== */
+.live-hub-day { position: relative; flex-shrink: 0; width: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 0 12px; border-radius: var(--r-lg); background: rgba(255,255,255,0.03); border: 1px solid var(--line); cursor: pointer; transition: background .2s, border-color .2s, transform .2s; }
+.live-hub-day:hover { background: rgba(255,255,255,0.06); }
+.live-hub-day.selected { background: var(--grad-pink); border-color: transparent; box-shadow: var(--glow-pink-sm); transform: translateY(-2px); }
+.live-hub-day-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink-3); }
+.live-hub-day.selected .live-hub-day-label { color: rgba(26,6,18,0.65); }
+.live-hub-day-num { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--ink-0); }
+.live-hub-day.selected .live-hub-day-num { color: #1a0612; }
+.live-hub-day-dot { position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--brand-400); }
+.live-hub-day.selected .live-hub-day-dot { background: #1a0612; }
+
+.live-hub-next-badge { display: inline-flex; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-pill); background: rgba(255,31,135,0.14); border: 1px solid rgba(255,31,135,0.30); color: var(--brand-400); }
+
+.live-hub-schedule-cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 20px; border-radius: var(--r-pill); border: 1.5px dashed rgba(255,31,135,0.45); color: var(--brand-400); font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.04em; text-decoration: none; transition: background .2s, border-color .2s; }
+.live-hub-schedule-cta:hover { background: rgba(255,31,135,0.06); border-color: rgba(255,31,135,0.65); }
+
+.live-hub-fab { position: fixed; bottom: 96px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--grad-pink); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 10px 30px -6px rgba(255,31,135,0.55), 0 0 46px -10px rgba(255,31,135,0.35); z-index: 30; text-decoration: none; transition: transform .18s, box-shadow .18s; }
+.live-hub-fab:hover { transform: scale(1.06); }
+
+/* ===== Schedule Live ===== */
+.schedule-live-header-btn { font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.06em; color: var(--brand-400); background: none; border: none; cursor: pointer; padding: 0; transition: opacity .2s; }
+.schedule-live-header-btn:hover:not(:disabled) { opacity: 0.75; }
+.schedule-live-header-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.schedule-live-month-row { display: flex; align-items: center; justify-content: space-between; }
+.schedule-live-month-label { font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.02em; color: var(--brand-400); }
+.schedule-live-month-nav { display: flex; align-items: center; gap: 6px; }
+.schedule-live-month-btn { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid var(--line); color: var(--ink-2); font-size: 12px; cursor: pointer; transition: background .2s, color .2s; }
+.schedule-live-month-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); color: var(--ink-0); }
+.schedule-live-month-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.schedule-live-calendar { display: flex; flex-direction: column; gap: 8px; }
+.schedule-live-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.schedule-live-weekday { text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-3); padding-bottom: 4px; }
+.schedule-live-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.schedule-live-day { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: var(--ink-1); background: none; border: none; cursor: pointer; transition: background .2s, color .2s; }
+.schedule-live-day:hover:not(:disabled) { background: rgba(255,255,255,0.06); }
+.schedule-live-day:disabled { color: var(--ink-4); cursor: not-allowed; }
+.schedule-live-day.selected { background: var(--grad-pink); color: #1a0612; box-shadow: var(--glow-pink-sm); font-weight: 800; }
+.schedule-live-day.empty { visibility: hidden; cursor: default; }
+
+/* Time wheel — item height 44px × 3 visible rows = 132px container.
+   Keep TIME_WHEEL_ITEM_HEIGHT / TIME_WHEEL_HEIGHT in TimeWheel.tsx in sync with
+   the 44px / 132px literals below if either changes. */
+.schedule-live-time-wheel-wrap { position: relative; }
+.schedule-live-time-wheel-band { position: absolute; top: 44px; left: 0; right: 0; height: 44px; border-top: 1px solid rgba(255,31,135,0.45); border-bottom: 1px solid rgba(255,31,135,0.45); background: rgba(255,31,135,0.08); border-radius: var(--r-md); pointer-events: none; z-index: 0; }
+.schedule-live-time-wheel-cols { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 18px; }
+.schedule-live-time-wheel-col { height: 132px; width: 88px; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; padding: 44px 0; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 70%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 70%, transparent 100%); }
+.schedule-live-time-wheel-item { display: flex; align-items: center; justify-content: center; width: 100%; height: 44px; scroll-snap-align: center; background: none; border: none; font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--ink-3); cursor: pointer; transition: color .2s, font-weight .2s; }
+.schedule-live-time-wheel-item:disabled { cursor: not-allowed; }
+.schedule-live-time-wheel-item.selected { color: var(--brand-400); font-weight: 800; }
+.schedule-live-time-wheel-sep { position: relative; z-index: 1; font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink-3); }
+
+.schedule-live-reminder-card { display: flex; align-items: center; gap: 14px; padding: 16px; }
+.schedule-live-reminder-icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(167,139,250,0.16); border: 1px solid rgba(167,139,250,0.30); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.schedule-live-reminder-title { font-size: 14px; font-weight: 700; color: var(--ink-0); }
+.schedule-live-reminder-text { font-size: 12px; color: var(--ink-3); line-height: 1.5; margin-top: 2px; }

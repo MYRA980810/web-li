@@ -120,8 +120,8 @@ export function SellerBottomNav({ active }: Props) {
 
       <button
         className="bottom-nav-live"
-        onClick={() => router.push('/live/setup')}
-        aria-label="Iniciar Live"
+        onClick={() => router.push('/live')}
+        aria-label="Live"
       >
         ⚡
       </button>

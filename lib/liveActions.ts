@@ -48,6 +48,8 @@ export async function createLive(input: CreateLiveInput): Promise<CreateLiveResu
         storeId:                parsed.data.storeId ?? null,
         title:                  parsed.data.title,
         displayDurationSeconds: parsed.data.displayDurationSeconds,
+        ...(parsed.data.scheduledAt  ? { scheduledAt: parsed.data.scheduledAt } : {}),
+        ...(parsed.data.thumbnailUrl ? { thumbnailUrl: parsed.data.thumbnailUrl } : {}),
       }),
     }, token)
   } catch (err) {
@@ -62,6 +64,42 @@ export async function createLive(input: CreateLiveInput): Promise<CreateLiveResu
 
   const live = await res.json()
   return { ok: true, live: live as LiveResponse }
+}
+
+// ─── uploadLiveThumbnail ────────────────────────────────────────────────────────
+
+export type UploadLiveThumbnailResult =
+  | { ok: true;  url: string }
+  | { ok: false; error: string }
+
+export async function uploadLiveThumbnail(file: File): Promise<UploadLiveThumbnailResult> {
+  const token = await requireToken()
+
+  const mediaForm = new FormData()
+  mediaForm.append('files', file)
+  mediaForm.append('context', 'lives')
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/media/images/batch`, {
+      method: 'POST',
+      body: mediaForm,
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo subir la imagen' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const media = (await res.json()) as { urls: string[] }
+  const url = media.urls[0]
+  if (!url) return { ok: false, error: 'No se pudo subir la imagen' }
+
+  return { ok: true, url }
 }
 
 // ─── Live product types ───────────────────────────────────────────────────────
@@ -359,6 +397,45 @@ export async function getChatHistory(liveId: string, limit = 50, before?: string
   const messages = (await res.json()) as ChatHistoryMessage[]
   return { ok: true, messages }
 }
+
+// ─── getLivesBySeller ─────────────────────────────────────────────────────────
+
+export type GetLivesBySellerResult =
+  | { ok: true;  lives: LiveResponse[] }
+  | { ok: false; error: string }
+
+/**
+ * Lists the authenticated seller's lives, optionally filtered by status.
+ * The sellerId required by the backend contract is derived from the JWT `sub`
+ * claim (same technique as getChatToken's rtmUid) rather than taken as a
+ * parameter — this keeps the call site simple and doesn't depend on the
+ * seller having a store yet (lives can exist under SELLER_PROFILE context).
+ */
+export async function getLivesBySeller(status?: LiveResponse['status']): Promise<GetLivesBySellerResult> {
+  const token    = await requireToken()
+  const sellerId = extractSubFromJwt(token)
+  if (!sellerId) return { ok: false, error: 'No se pudo obtener la identidad del vendedor' }
+
+  const params = new URLSearchParams({ sellerId })
+  if (status) params.set('status', status)
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives?${params}`, { method: 'GET' }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const lives = await res.json()
+  return { ok: true, lives: lives as LiveResponse[] }
+}
+
 
 // ─── startLive ────────────────────────────────────────────────────────────────
 

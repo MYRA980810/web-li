@@ -191,3 +191,27 @@ export async function getMyStore(): Promise<StoreResponse | null> {
   if (!res.ok) return null
   return res.json() as Promise<StoreResponse>
 }
+
+export type GetFollowerCountResult =
+  | { ok: true;  count: number }
+  | { ok: false; error: string }
+
+export async function getFollowerCount(storeId: string): Promise<GetFollowerCountResult> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/stores/${storeId}/followers/count`, { headers: {} }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = (await res.json()) as { followerCount: number }
+  return { ok: true, count: data.followerCount }
+}

@@ -42,10 +42,11 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
   // Store video track in state so the play effect runs after the DOM update
   const [videoTrack, setVideoTrack]     = useState<ICameraVideoTrack | null>(null)
 
-  const startedRef  = useRef(false)
-  const endingRef   = useRef(false)
-  const tracksRef   = useRef<AgoraTracks | null>(null)
-  const videoRef    = useRef<HTMLDivElement>(null)
+  const startedRef   = useRef(false)
+  const endingRef    = useRef(false)
+  const publishedRef = useRef(false)
+  const tracksRef    = useRef<AgoraTracks | null>(null)
+  const videoRef     = useRef<HTMLDivElement>(null)
 
   // ── 1. Call startLive once ────────────────────────────────────────────────────
   useEffect(() => {
@@ -120,7 +121,7 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
     videoTrack.play('agora-local-video', { fit: 'cover' })
   }, [videoTrack])
 
-  // ── 4. Countdown tick ─────────────────────────────────────────────────────────
+  // ── 4. Countdown tick — purely visual, does not gate publishing ───────────────
   useEffect(() => {
     if (phase !== 'countdown') return
 
@@ -130,6 +131,17 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
     }
 
     setPhase('publishing')
+  }, [count, phase])
+
+  // ── 5. Publish once the countdown is done AND the camera is actually ready ────
+  // If the camera setup (effect #2) is still running when the countdown hits 0,
+  // this waits — the UI shows "Conectando cámara..." — instead of cutting to a
+  // black live screen with nothing published to viewers.
+  useEffect(() => {
+    if (phase !== 'publishing' || publishedRef.current) return
+    if (cameraState !== 'ready') return
+
+    publishedRef.current = true
     void (async () => {
       const tracks = tracksRef.current
       if (tracks) {
@@ -138,7 +150,7 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
       }
       setPhase('live')
     })()
-  }, [count, phase])
+  }, [phase, cameraState])
 
   // ── End live ─────────────────────────────────────────────────────────────────
   async function handleEnd() {
@@ -192,7 +204,7 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
       <div className="live-countdown-wrap">
         <span className="live-countdown-label">
           {phase === 'countdown'  && 'Iniciando Transmisión'}
-          {phase === 'publishing' && 'Publicando stream...'}
+          {phase === 'publishing' && (cameraState === 'ready' ? 'Publicando stream...' : 'Conectando cámara...')}
           {phase === 'live'       && 'En Vivo'}
           {phase === 'error'      && 'Error'}
         </span>

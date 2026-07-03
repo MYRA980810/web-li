@@ -1269,3 +1269,50 @@ input  { font-family: inherit; }
 .schedule-live-reminder-icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(167,139,250,0.16); border: 1px solid rgba(167,139,250,0.30); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 .schedule-live-reminder-title { font-size: 14px; font-weight: 700; color: var(--ink-0); }
 .schedule-live-reminder-text { font-size: 12px; color: var(--ink-3); line-height: 1.5; margin-top: 2px; }
+
+/* Live Detail screen */
+.live-detail-hero { position: relative; overflow: hidden; border-radius: var(--r-xl); background: rgba(255,255,255,0.03); border: 1px solid var(--line); min-height: 220px; display: flex; align-items: center; justify-content: center; }
+.live-detail-hero-img { width: 100%; height: 220px; object-fit: cover; display: block; }
+.live-detail-hero-emoji { font-size: 80px; opacity: 0.9; }
+
+.live-detail-overlay-badge { position: absolute; top: 14px; left: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--r-pill); font-size: 10px; font-weight: 800; letter-spacing: 0.10em; text-transform: uppercase; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.live-detail-overlay-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.live-detail-overlay-badge.scheduled { background: rgba(255,31,135,0.30); border: 1px solid rgba(255,31,135,0.50); color: #ffe1f0; }
+.live-detail-overlay-badge.live { background: rgba(34,211,238,0.30); border: 1px solid rgba(34,211,238,0.50); color: #e0fbff; }
+.live-detail-overlay-badge.ended { background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.30); color: var(--ink-0); }
+.live-detail-overlay-badge.cancelled { background: rgba(239,68,68,0.25); border: 1px solid rgba(239,68,68,0.45); color: #ffd7d7; }
+
+.live-detail-status-chip { display: inline-flex; align-items: center; width: fit-content; padding: 4px 12px; border-radius: var(--r-pill); font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; }
+.live-detail-status-chip.scheduled { background: rgba(255,31,135,0.12); border: 1px solid rgba(255,31,135,0.32); color: var(--brand-400); }
+.live-detail-status-chip.live { background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.32); color: #22d3ee; }
+.live-detail-status-chip.ended { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: var(--ink-2); }
+.live-detail-status-chip.cancelled { background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.28); color: #f87171; }
+
+.live-detail-meta-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+.live-detail-meta-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.live-detail-meta-value { font-size: 14px; font-weight: 700; color: var(--ink-0); margin-top: 2px; }
+.live-detail-meta-sub { font-size: 11px; font-weight: 600; color: var(--ink-3); margin-top: 1px; }
+
+/* Mini calendar icon — real month/day pulled from the live's scheduledAt */
+.live-detail-calendar-icon { width: 52px; height: 52px; border-radius: var(--r-md); overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column; border: 1px solid rgba(255,31,135,0.30); box-shadow: 0 8px 20px -10px rgba(255,31,135,0.55); }
+.live-detail-calendar-month { background: var(--grad-pink); color: #1a0612; font-size: 9px; font-weight: 800; letter-spacing: 0.10em; text-transform: uppercase; text-align: center; padding: 3px 0; }
+.live-detail-calendar-day { flex: 1; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink-0); }
+
+/* Analog clock face — hands rotate to the live's real scheduled hour/minute
+   via inline style (dynamic per-live value, not a static asset). */
+.live-detail-clock-face { position: relative; width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; background: radial-gradient(ellipse at 35% 30%, rgba(255,102,184,0.20) 0%, rgba(10,10,14,0.92) 75%); border: 1px solid rgba(255,31,135,0.35); box-shadow: 0 8px 20px -10px rgba(255,31,135,0.50), inset 0 0 12px rgba(255,31,135,0.12); }
+.live-detail-clock-tick { position: absolute; background: rgba(255,255,255,0.35); border-radius: 1px; }
+.live-detail-clock-tick.n12 { top: 4px; left: 50%; width: 2px; height: 5px; transform: translateX(-50%); }
+.live-detail-clock-tick.n3  { top: 50%; right: 4px; width: 5px; height: 2px; transform: translateY(-50%); }
+.live-detail-clock-tick.n6  { bottom: 4px; left: 50%; width: 2px; height: 5px; transform: translateX(-50%); }
+.live-detail-clock-tick.n9  { top: 50%; left: 4px; width: 5px; height: 2px; transform: translateY(-50%); }
+.live-detail-clock-hand { position: absolute; left: 50%; bottom: 50%; transform-origin: bottom center; border-radius: 2px; }
+.live-detail-clock-hand.hour { width: 2.5px; height: 14px; margin-left: -1.25px; background: var(--brand-400); }
+.live-detail-clock-hand.minute { width: 2px; height: 19px; margin-left: -1px; background: #fff; }
+.live-detail-clock-center { position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--brand-400); box-shadow: 0 0 6px rgba(255,31,135,0.8); }
+
+.live-detail-edit-btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 15px; border-radius: var(--r-pill); background: rgba(255,31,135,0.06); border: 1.5px solid rgba(255,31,135,0.50); color: var(--brand-400); font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background .2s, border-color .2s; }
+.live-detail-edit-btn:hover { background: rgba(255,31,135,0.12); }
+
+.live-detail-announce-btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 16px; border-radius: var(--r-pill); background: var(--grad-pink); color: #1a0612; font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border: none; cursor: pointer; box-shadow: var(--glow-pink-sm); transition: transform .18s; }
+.live-detail-announce-btn:hover { transform: scale(1.02); }

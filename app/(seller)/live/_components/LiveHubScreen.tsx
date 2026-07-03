@@ -130,7 +130,7 @@ function DayPicker({ days, selected, onSelect }: { days: WeekDay[]; selected: nu
 
 function NextLiveCard({ live }: { live: LiveResponse }) {
   return (
-    <div className="glass flex items-center gap-3 p-3">
+    <Link href={`/live/${live.id}`} className="glass flex items-center gap-3 p-3">
       <div className="relative w-16 h-16 rounded-(--r-md) overflow-hidden shrink-0 bg-(--bg-2)">
         {live.thumbnailUrl ? (
           <Image src={live.thumbnailUrl} alt={live.title} fill className="object-cover" />
@@ -145,7 +145,7 @@ function NextLiveCard({ live }: { live: LiveResponse }) {
           <p className="text-[12px] text-(--ink-3)">{formatLiveDateTime(live.scheduledAt)}</p>
         )}
       </div>
-    </div>
+    </Link>
   )
 }
 

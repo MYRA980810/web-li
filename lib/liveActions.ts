@@ -437,6 +437,26 @@ export async function getLivesBySeller(status?: LiveResponse['status']): Promise
 }
 
 
+// ─── getLiveById ──────────────────────────────────────────────────────────────
+
+export async function getLiveById(liveId: string): Promise<LiveResponse | null> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/${liveId}`, { method: 'GET' }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return null
+  }
+
+  if (!res.ok) return null
+
+  const live = await res.json()
+  return live as LiveResponse
+}
+
+
 // ─── startLive ────────────────────────────────────────────────────────────────
 
 export type StartLiveResult =

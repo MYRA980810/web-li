@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import { createLive } from '@/lib/liveActions'
+import { defaultVariant } from '@/components/StockProductPicker'
+import { createLive, addCatalogLiveProduct } from '@/lib/liveActions'
+import { StockPickerDrawer } from './StockPickerDrawer'
+import type { ProductView, Category } from '@/lib/types'
 
 // Backend constraint: @Min(15) @Max(120)
 const DEPLOY_STEPS = [
@@ -19,9 +23,22 @@ function formatDeploy(seconds: number): string {
   return `${seconds / 60}m`
 }
 
-type Props = { storeId: string | null }
+function formatPrice(price: number): string {
+  return `$${price.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`
+}
 
-export function GoLiveSetupScreen({ storeId }: Props) {
+function getPrimaryImage(product: ProductView): string | null {
+  const primary = product.images.find((img) => img.primary)
+  return primary?.url ?? product.images[0]?.url ?? null
+}
+
+type Props = {
+  storeId: string | null
+  products: ProductView[]
+  categories: Category[]
+}
+
+export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
   const router = useRouter()
 
   const [title, setTitle]         = useState('')
@@ -30,8 +47,28 @@ export function GoLiveSetupScreen({ storeId }: Props) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError]         = useState<string | null>(null)
 
+  const [stockDrawerOpen, setStockDrawerOpen]         = useState(false)
+  const [selectedProductIds, setSelectedProductIds]   = useState<Set<string>>(new Set())
+
   const deploySeconds = DEPLOY_STEPS[deployIdx].seconds
   const fillPct       = (deployIdx / (DEPLOY_STEPS.length - 1)) * 100
+
+  // Preserves selection order (Set iteration order) rather than catalog order.
+  const selectedProducts = useMemo(
+    () => [...selectedProductIds]
+      .map((id) => products.find((p) => p.id === id))
+      .filter((p): p is ProductView => !!p),
+    [selectedProductIds, products],
+  )
+
+  function toggleProduct(id: string) {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   async function handleStart() {
     setIsLoading(true)
@@ -48,6 +85,26 @@ export function GoLiveSetupScreen({ storeId }: Props) {
       setError(result.error)
       setIsLoading(false)
       return
+    }
+
+    // Attach the stock products picked in the drawer now that the live exists.
+    // Best-effort: the live was created successfully, so we don't block going
+    // live on individual product-attach failures — those can be retried from
+    // the live's product picker afterwards.
+    if (selectedProducts.length > 0) {
+      await Promise.all(
+        selectedProducts.map((p) => {
+          const variant = defaultVariant(p)!
+          return addCatalogLiveProduct(result.live.id, {
+            productId:      p.id,
+            variantId:      variant.id,
+            nameSnapshot:   p.name,
+            priceSnapshot:  variant.effectivePrice,
+            currency:       p.currency,
+            stockAllocated: variant.stock.availableQuantity,
+          })
+        }),
+      )
     }
 
     router.push(`/live/setup/countdown?liveId=${result.live.id}`)
@@ -110,7 +167,13 @@ export function GoLiveSetupScreen({ storeId }: Props) {
       <div className="px-5 mt-7 reveal d4">
         <span className="store-form-label">Inventario de Productos</span>
         <div className="live-inventory-grid">
-          <button className="live-inventory-card" aria-label="Cargar desde stock" disabled={isLoading}>
+          <button
+            type="button"
+            className={`live-inventory-card${selectedProductIds.size > 0 ? ' selected' : ''}`}
+            aria-label="Cargar desde stock"
+            onClick={() => setStockDrawerOpen(true)}
+            disabled={isLoading}
+          >
             <span className="live-inventory-card-icon">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="5" rx="1"/>
@@ -120,7 +183,11 @@ export function GoLiveSetupScreen({ storeId }: Props) {
             </span>
             <span className="live-inventory-card-body">
               <span className="live-inventory-card-title">Cargar desde Stock</span>
-              <span className="live-inventory-card-desc">Selecciona productos existentes de tu tienda</span>
+              <span className="live-inventory-card-desc">
+                {selectedProductIds.size > 0
+                  ? `${selectedProductIds.size} producto${selectedProductIds.size === 1 ? '' : 's'} seleccionado${selectedProductIds.size === 1 ? '' : 's'}`
+                  : 'Selecciona productos existentes de tu tienda'}
+              </span>
             </span>
           </button>
           <button className="live-inventory-card" aria-label="Añadir nuevo" disabled={isLoading}>
@@ -136,6 +203,65 @@ export function GoLiveSetupScreen({ storeId }: Props) {
             </span>
           </button>
         </div>
+
+        {selectedProducts.length > 0 && (
+          <div className="flex flex-col mt-2">
+            {selectedProducts.map((p) => {
+              const variant  = defaultVariant(p)
+              const price    = variant?.effectivePrice ?? p.basePrice
+              const imageUrl = getPrimaryImage(p)
+              const isLow    = p.stock.totalQuantity > 0 && p.stock.totalQuantity <= 3
+
+              return (
+                <div key={p.id} className="stock-product-item">
+                  <div
+                    className="stock-product-thumb"
+                    style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(255,31,135,0.12), rgba(8,5,20,0.9))' }}
+                  >
+                    {imageUrl ? (
+                      <Image src={imageUrl} alt={p.name} width={64} height={64} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[24px] opacity-50">📦</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold text-(--ink-0) leading-snug truncate">{p.name}</p>
+                    <p className="text-[13px] font-bold text-brand-400">{formatPrice(price)}</p>
+                    <div className={`flex items-center gap-1.5 mt-0.5 ${isLow ? 'stock-low-warning' : 'text-(--ink-3)'}`}>
+                      {isLow ? (
+                        <>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M6 1L11 10H1L6 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                            <path d="M6 4.5v2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                            <circle cx="6" cy="8.5" r="0.5" fill="currentColor"/>
+                          </svg>
+                          <span className="text-[12px] font-medium">{p.stock.totalQuantity} unidades (Stock bajo)</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                            <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                          </svg>
+                          <span className="text-[12px] font-medium">{p.stock.totalQuantity} unidades en stock</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="live-selected-product-remove"
+                    onClick={() => toggleProduct(p.id)}
+                    aria-label={`Quitar ${p.name}`}
+                    disabled={isLoading}
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Beauty AI toggle */}
@@ -226,6 +352,15 @@ export function GoLiveSetupScreen({ storeId }: Props) {
 
         <SellerBottomNav active="home" />
       </div>
+
+      <StockPickerDrawer
+        open={stockDrawerOpen}
+        onClose={() => setStockDrawerOpen(false)}
+        products={products}
+        categories={categories}
+        selected={selectedProductIds}
+        onToggle={toggleProduct}
+      />
     </>
   )
 }

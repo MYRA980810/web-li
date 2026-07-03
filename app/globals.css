@@ -663,6 +663,12 @@ input  { font-family: inherit; }
 }
 .live-inventory-card:hover:not(:disabled) { border-color: var(--brand-400); }
 .live-inventory-card:disabled { opacity: 0.5; cursor: not-allowed; }
+.live-inventory-card.selected { border-color: var(--brand-400); background: rgba(255,31,135,0.08); box-shadow: var(--glow-pink-sm); }
+.live-inventory-card.selected .live-inventory-card-desc { color: var(--brand-400); font-weight: 700; }
+
+.live-selected-product-remove { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--ink-2); display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; cursor: pointer; flex-shrink: 0; transition: background .2s, color .2s, border-color .2s; }
+.live-selected-product-remove:hover { background: rgba(239,68,68,0.16); color: #f87171; border-color: rgba(239,68,68,0.30); }
+.live-selected-product-remove:disabled { opacity: 0.4; cursor: not-allowed; }
 .live-inventory-card-icon { color: var(--brand-400); display: flex; flex-shrink: 0; }
 .live-inventory-card-body { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .live-inventory-card-title {
@@ -1316,3 +1322,36 @@ input  { font-family: inherit; }
 
 .live-detail-announce-btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 16px; border-radius: var(--r-pill); background: var(--grad-pink); color: #1a0612; font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border: none; cursor: pointer; box-shadow: var(--glow-pink-sm); transition: transform .18s; }
 .live-detail-announce-btn:hover { transform: scale(1.02); }
+
+.live-detail-add-products-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 15px; border-radius: var(--r-pill); border: 1.5px dashed rgba(255,31,135,0.45); color: var(--brand-400); font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; transition: background .2s, border-color .2s; }
+.live-detail-add-products-btn:hover { background: rgba(255,31,135,0.06); border-color: rgba(255,31,135,0.65); }
+
+/* Live product picker — 2-col stock grid to attach catalog products to a live */
+.live-picker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.live-picker-card { position: relative; display: flex; flex-direction: column; border-radius: var(--r-lg); overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--line); cursor: pointer; padding: 0; text-align: left; transition: border-color .2s, transform .2s; }
+.live-picker-card:hover { transform: translateY(-2px); }
+.live-picker-card.selected { border-color: var(--brand-400); box-shadow: var(--glow-pink-sm); }
+.live-picker-card-img-wrap { position: relative; width: 100%; aspect-ratio: 1; background: rgba(255,255,255,0.03); }
+.live-picker-checkbox { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.55); background: rgba(0,0,0,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; transition: background .2s, border-color .2s; }
+.live-picker-checkbox.checked { background: var(--grad-pink); border-color: transparent; box-shadow: var(--glow-pink-sm); }
+.live-picker-price-badge { position: absolute; bottom: 8px; right: 8px; font-family: var(--font-display); font-size: 12px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 3px 9px; border-radius: var(--r-pill); }
+.live-picker-card-body { padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.live-picker-card-name { font-size: 13px; font-weight: 600; color: var(--ink-0); line-height: 1.3; }
+.live-picker-card-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+
+.live-picker-cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border-radius: var(--r-pill); background: var(--grad-pink); color: #1a0612; font-family: var(--font-display); font-size: 14px; font-weight: 800; letter-spacing: 0.04em; border: none; cursor: pointer; box-shadow: var(--glow-pink-sm); transition: transform .18s, opacity .18s; }
+.live-picker-cta:disabled { opacity: 0.4; cursor: not-allowed; }
+.live-picker-cta:hover:not(:disabled) { transform: scale(1.02); }
+
+/* Products-added success screen */
+.live-success-circle { width: 112px; height: 112px; border-radius: 50%; background: radial-gradient(ellipse at 50% 30%, rgba(255,31,135,0.22) 0%, rgba(8,5,20,0.95) 70%); border: 1px solid rgba(255,31,135,0.30); display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 0 60px -18px rgba(255,31,135,0.55); position: relative; }
+.live-success-ring { position: absolute; inset: -18px; border-radius: 50%; border: 1px solid rgba(255,31,135,0.16); }
+.live-success-ring.outer { inset: -38px; border-color: rgba(255,31,135,0.08); }
+.live-success-inventory-card { background: rgba(8,5,20,0.85); border: 1px solid rgba(255,31,135,0.18); border-radius: var(--r-xl); padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.live-success-inventory-label { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand-400); }
+.live-success-inventory-count { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--ink-0); line-height: 1.1; margin-top: 4px; }
+.live-success-inventory-sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.live-success-avatar-stack { display: flex; align-items: center; }
+.live-success-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 2px solid var(--bg-0); background: rgba(255,255,255,0.06); margin-left: -10px; flex-shrink: 0; }
+.live-success-avatar:first-child { margin-left: 0; }
+.live-success-avatar-overflow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--bg-0); background: var(--grad-pink); color: #1a0612; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; margin-left: -10px; flex-shrink: 0; }

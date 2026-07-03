@@ -148,6 +148,12 @@ function DetailContent({ live }: { live: LiveResponse }) {
       )}
 
       <div className="flex flex-col gap-3 mt-3">
+        {live.status === 'SCHEDULED' && (
+          <Link href={`/live/${live.id}/products`} className="live-detail-add-products-btn">
+            <span aria-hidden="true">🛍️</span>
+            Agregar Productos
+          </Link>
+        )}
         <button type="button" className="live-detail-edit-btn">
           Editar Live
         </button>

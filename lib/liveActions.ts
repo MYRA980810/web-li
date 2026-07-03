@@ -217,6 +217,48 @@ export async function addHotLiveProduct(
   return { ok: true, product: product as LiveProductApiResponse }
 }
 
+// ─── addCatalogLiveProduct ─────────────────────────────────────────────────────
+
+export type AddCatalogLiveProductInput = {
+  productId: string
+  variantId: string
+  nameSnapshot: string
+  priceSnapshot: number
+  currency: string
+  stockAllocated: number
+}
+
+export type AddCatalogLiveProductResult =
+  | { ok: true;  product: LiveProductApiResponse }
+  | { ok: false; error: string }
+
+export async function addCatalogLiveProduct(
+  liveId: string,
+  input: AddCatalogLiveProductInput,
+): Promise<AddCatalogLiveProductResult> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/${liveId}/products/catalog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const product = await res.json()
+  return { ok: true, product: product as LiveProductApiResponse }
+}
+
 // ─── pinLiveProduct ───────────────────────────────────────────────────────────
 
 export type PinLiveProductResult =

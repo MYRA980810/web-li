@@ -226,6 +226,7 @@ export type AddCatalogLiveProductInput = {
   priceSnapshot: number
   currency: string
   stockAllocated: number
+  imageUrl?: string | null
 }
 
 export type AddCatalogLiveProductResult =

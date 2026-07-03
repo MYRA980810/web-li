@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import { StockProductPicker, defaultVariant } from '@/components/StockProductPicker'
+import { StockProductPicker, defaultVariant, getPrimaryImage } from '@/components/StockProductPicker'
 import { addCatalogLiveProduct } from '@/lib/liveActions'
 import type { ProductView, Category } from '@/lib/types'
 
@@ -49,6 +49,7 @@ export function SelectLiveStockScreen({ liveId, products, categories }: Props) {
           priceSnapshot:  variant.effectivePrice,
           currency:       p.currency,
           stockAllocated: variant.stock.availableQuantity,
+          imageUrl:       getPrimaryImage(p),
         })
       }),
     )

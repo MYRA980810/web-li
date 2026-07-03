@@ -8,7 +8,7 @@ function formatPrice(price: number): string {
   return `$${price.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`
 }
 
-function getPrimaryImage(product: ProductView): string | null {
+export function getPrimaryImage(product: ProductView): string | null {
   const primary = product.images.find((img) => img.primary)
   return primary?.url ?? product.images[0]?.url ?? null
 }

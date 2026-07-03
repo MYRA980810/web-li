@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ProductImagePicker, type PickerState } from '@/components/ProductImagePicker'
+import { HotProductFields, hotProductDraftToFormData, emptyHotProductDraft, type HotProductDraft } from '@/components/HotProductFields'
 import { addHotLiveProduct } from '@/lib/liveActions'
 import type { LiveProduct } from './LiveStockDrawer'
 
@@ -13,23 +13,15 @@ type Props = {
 }
 
 export function LiveAddProductDrawer({ liveId, open, onClose, onSave }: Props) {
-  const [pickerState, setPickerState] = useState<PickerState>({ newFiles: [], deletedImageIds: [] })
-  const [name,        setName]        = useState('')
-  const [description, setDescription] = useState('')
-  const [price,       setPrice]       = useState('')
-  const [stock,       setStock]       = useState('')
-  const [isLoading,   setIsLoading]   = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+  const [draft,      setDraft]      = useState<HotProductDraft>(emptyHotProductDraft)
+  const [isLoading,  setIsLoading]  = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
 
   if (!open) return null
 
-  function handlePriceInput(e: React.ChangeEvent<HTMLInputElement>) {
-    setPrice(e.target.value.replace(/[^0-9.]/g, ''))
-  }
-
   async function handleSubmit() {
-    if (!name.trim()) return
-    const stockVal = parseInt(stock, 10)
+    if (!draft.name.trim()) return
+    const stockVal = parseInt(draft.stock, 10)
     if (!stockVal || stockVal < 1) {
       setError('El stock debe ser mínimo 1')
       return
@@ -38,16 +30,7 @@ export function LiveAddProductDrawer({ liveId, open, onClose, onSave }: Props) {
     setIsLoading(true)
     setError(null)
 
-    const fd = new FormData()
-    fd.set('name', name.trim())
-    fd.set('price', price || '0')
-    fd.set('currency', 'MXN')
-    fd.set('stockAllocated', String(stockVal))
-    if (pickerState.newFiles[0]) {
-      fd.set('image', pickerState.newFiles[0])
-    }
-
-    const result = await addHotLiveProduct(liveId, fd)
+    const result = await addHotLiveProduct(liveId, hotProductDraftToFormData(draft))
 
     if (!result.ok) {
       setError(result.error)
@@ -73,11 +56,7 @@ export function LiveAddProductDrawer({ liveId, open, onClose, onSave }: Props) {
   }
 
   function handleReset() {
-    setPickerState({ newFiles: [], deletedImageIds: [] })
-    setName('')
-    setDescription('')
-    setPrice('')
-    setStock('')
+    setDraft(emptyHotProductDraft)
     setIsLoading(false)
     setError(null)
   }
@@ -117,85 +96,7 @@ export function LiveAddProductDrawer({ liveId, open, onClose, onSave }: Props) {
 
         <div className="live-stock-body">
           <div className="live-add-form">
-
-            {/* Photo */}
-            <div className="live-add-field">
-              <span className="store-form-label">Foto del Producto</span>
-              <ProductImagePicker onChange={setPickerState} />
-            </div>
-
-            {/* Name */}
-            <div className="live-add-field">
-              <label className="store-form-label" htmlFor="lap-name">
-                Nombre del Producto
-              </label>
-              <input
-                id="lap-name"
-                type="text"
-                className="store-input"
-                placeholder="Ej. Neon Pulse Jacket"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isLoading}
-                maxLength={120}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="live-add-field">
-              <label className="store-form-label" htmlFor="lap-desc">
-                Descripción
-              </label>
-              <textarea
-                id="lap-desc"
-                className="store-input"
-                placeholder="Describí brevemente el producto..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                disabled={isLoading}
-                rows={3}
-                maxLength={500}
-              />
-            </div>
-
-            {/* Price */}
-            <div className="live-add-field">
-              <span className="store-form-label">Precio</span>
-              <div className="live-add-price-row">
-                <span className="live-add-price-prefix">$</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  className="live-add-price-input"
-                  placeholder="0.00"
-                  value={price}
-                  onChange={handlePriceInput}
-                  disabled={isLoading}
-                  aria-label="Precio del producto"
-                />
-                <div className="live-add-currency">MXN</div>
-              </div>
-            </div>
-
-            {/* Stock */}
-            <div className="live-add-field">
-              <label className="store-form-label" htmlFor="lap-stock">
-                Cantidad en Stock
-              </label>
-              <input
-                id="lap-stock"
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                className="store-input"
-                placeholder="Mínimo 1"
-                value={stock}
-                onChange={(e) => setStock(e.target.value.replace(/[^0-9]/g, ''))}
-                disabled={isLoading}
-                aria-label="Cantidad en stock"
-              />
-            </div>
+            <HotProductFields idPrefix="lap" draft={draft} onChange={setDraft} disabled={isLoading} />
 
             {/* Error */}
             {error && (
@@ -208,7 +109,7 @@ export function LiveAddProductDrawer({ liveId, open, onClose, onSave }: Props) {
                 type="button"
                 className="live-add-cta"
                 onClick={handleSubmit}
-                disabled={!name.trim() || isLoading}
+                disabled={!draft.name.trim() || isLoading}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
                   <path d="M7 1L8.8 5.4H13.4L9.7 8.1L11.1 12.5L7 9.8L2.9 12.5L4.3 8.1L0.6 5.4H5.2L7 1Z" fill="currentColor" />

@@ -6,8 +6,10 @@ import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
 import { defaultVariant } from '@/components/StockProductPicker'
-import { createLive, addCatalogLiveProduct } from '@/lib/liveActions'
+import { hotProductDraftToFormData, type HotProductDraft } from '@/components/HotProductFields'
+import { createLive, addCatalogLiveProduct, addHotLiveProduct } from '@/lib/liveActions'
 import { StockPickerDrawer } from './StockPickerDrawer'
+import { HotProductDrawer } from './HotProductDrawer'
 import type { ProductView, Category } from '@/lib/types'
 
 // Backend constraint: @Min(15) @Max(120)
@@ -32,6 +34,8 @@ function getPrimaryImage(product: ProductView): string | null {
   return primary?.url ?? product.images[0]?.url ?? null
 }
 
+type HotDraftEntry = { id: string; draft: HotProductDraft }
+
 type Props = {
   storeId: string | null
   products: ProductView[]
@@ -49,6 +53,9 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
 
   const [stockDrawerOpen, setStockDrawerOpen]         = useState(false)
   const [selectedProductIds, setSelectedProductIds]   = useState<Set<string>>(new Set())
+
+  const [hotDrawerOpen, setHotDrawerOpen] = useState(false)
+  const [hotDrafts, setHotDrafts]         = useState<HotDraftEntry[]>([])
 
   const deploySeconds = DEPLOY_STEPS[deployIdx].seconds
   const fillPct       = (deployIdx / (DEPLOY_STEPS.length - 1)) * 100
@@ -68,6 +75,14 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
       else next.add(id)
       return next
     })
+  }
+
+  function addHotDraft(draft: HotProductDraft) {
+    setHotDrafts((prev) => [...prev, { id: crypto.randomUUID(), draft }])
+  }
+
+  function removeHotDraft(id: string) {
+    setHotDrafts((prev) => prev.filter((entry) => entry.id !== id))
   }
 
   async function handleStart() {
@@ -102,8 +117,17 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
             priceSnapshot:  variant.effectivePrice,
             currency:       p.currency,
             stockAllocated: variant.stock.availableQuantity,
+            imageUrl:       getPrimaryImage(p),
           })
         }),
+      )
+    }
+
+    // Same best-effort treatment for hot-drafted products created via
+    // "Añadir Nuevo" — the drafts were only collected locally until now.
+    if (hotDrafts.length > 0) {
+      await Promise.all(
+        hotDrafts.map((entry) => addHotLiveProduct(result.live.id, hotProductDraftToFormData(entry.draft))),
       )
     }
 
@@ -190,7 +214,13 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
               </span>
             </span>
           </button>
-          <button className="live-inventory-card" aria-label="Añadir nuevo" disabled={isLoading}>
+          <button
+            type="button"
+            className={`live-inventory-card${hotDrafts.length > 0 ? ' selected' : ''}`}
+            aria-label="Añadir nuevo"
+            onClick={() => setHotDrawerOpen(true)}
+            disabled={isLoading}
+          >
             <span className="live-inventory-card-icon">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="9"/>
@@ -199,7 +229,11 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
             </span>
             <span className="live-inventory-card-body">
               <span className="live-inventory-card-title">Añadir Nuevo</span>
-              <span className="live-inventory-card-desc">Carga productos manualmente si no tenés una tienda configurada</span>
+              <span className="live-inventory-card-desc">
+                {hotDrafts.length > 0
+                  ? `${hotDrafts.length} producto${hotDrafts.length === 1 ? '' : 's'} nuevo${hotDrafts.length === 1 ? '' : 's'}`
+                  : 'Carga productos manualmente si no tenés una tienda configurada'}
+              </span>
             </span>
           </button>
         </div>
@@ -260,6 +294,35 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {hotDrafts.length > 0 && (
+          <div className="flex flex-col mt-2">
+            {hotDrafts.map(({ id, draft }) => (
+              <div key={id} className="stock-product-item">
+                <div
+                  className="stock-product-thumb"
+                  style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(139,92,246,0.16), rgba(8,5,20,0.9))' }}
+                >
+                  <span className="text-[22px] opacity-60">🆕</span>
+                </div>
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-(--ink-0) leading-snug truncate">{draft.name}</p>
+                  <p className="text-[13px] font-bold text-brand-400">{formatPrice(parseFloat(draft.price || '0'))}</p>
+                  <p className="text-[12px] font-medium text-(--ink-3)">{draft.stock || '0'} unidades · Nuevo</p>
+                </div>
+                <button
+                  type="button"
+                  className="live-selected-product-remove"
+                  onClick={() => removeHotDraft(id)}
+                  aria-label={`Quitar ${draft.name}`}
+                  disabled={isLoading}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -360,6 +423,12 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
         categories={categories}
         selected={selectedProductIds}
         onToggle={toggleProduct}
+      />
+
+      <HotProductDrawer
+        open={hotDrawerOpen}
+        onClose={() => setHotDrawerOpen(false)}
+        onAdd={addHotDraft}
       />
     </>
   )

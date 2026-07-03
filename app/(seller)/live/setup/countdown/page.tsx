@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { getMyProducts, getMyCategories } from '@/lib/productActions'
 import { GoLiveCountdownScreen } from './_components/GoLiveCountdownScreen'
 
 export default async function GoLiveCountdownPage({
@@ -8,5 +9,11 @@ export default async function GoLiveCountdownPage({
 }) {
   const { liveId } = await searchParams
   if (!liveId) redirect('/live/setup')
-  return <GoLiveCountdownScreen liveId={liveId} />
+
+  const [products, categories] = await Promise.all([
+    getMyProducts(),
+    getMyCategories(),
+  ])
+
+  return <GoLiveCountdownScreen liveId={liveId} products={products} categories={categories} />
 }

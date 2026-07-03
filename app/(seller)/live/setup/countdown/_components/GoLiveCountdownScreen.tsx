@@ -10,6 +10,7 @@ import type {
 import { Ambient } from '@/components/Ambient'
 import { startLive, endLive, type LiveResponse } from '@/lib/liveActions'
 import { SellerLiveBroadcast } from './SellerLiveBroadcast'
+import type { ProductView, Category } from '@/lib/types'
 
 type Phase = 'countdown' | 'publishing' | 'live' | 'error'
 type CameraState = 'connecting' | 'ready' | 'error'
@@ -20,9 +21,13 @@ type AgoraTracks = {
   audio: IMicrophoneAudioTrack
 }
 
-type Props = { liveId: string }
+type Props = {
+  liveId: string
+  products: ProductView[]
+  categories: Category[]
+}
 
-export function GoLiveCountdownScreen({ liveId }: Props) {
+export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
   const router = useRouter()
 
   const rtcUid = useRef<number>(
@@ -162,6 +167,8 @@ export function GoLiveCountdownScreen({ liveId }: Props) {
         videoTrack={videoTrack}
         storeName={live.title}
         onEnd={handleEnd}
+        products={products}
+        categories={categories}
       />
     )
   }

@@ -40,9 +40,10 @@ type Props = {
   onClose: () => void
   onLaunch?: (product: LiveProduct) => void
   onAddProduct: () => void
+  onAddCatalogProduct: () => void
 }
 
-export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct }: Props) {
+export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct, onAddCatalogProduct }: Props) {
   const [products,  setProducts]  = useState<LiveProduct[]>([])
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState<string | null>(null)
@@ -111,13 +112,27 @@ export function LiveStockDrawer({ liveId, open, onClose, onLaunch, onAddProduct 
         </div>
 
         <div className="live-stock-body">
-          {/* Add product CTA */}
-          <button className="live-stock-add-btn" type="button" onClick={onAddProduct}>
-            <div className="live-stock-add-icon" aria-hidden="true">+</div>
-            <span className="live-stock-add-text">
-              Añadir Producto<br />en Caliente
-            </span>
-          </button>
+          {/* Add product CTAs */}
+          <div className="live-stock-add-row">
+            <button className="live-stock-add-btn outline" type="button" onClick={onAddCatalogProduct}>
+              <div className="live-stock-add-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="5" rx="1"/>
+                  <path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8"/>
+                  <path d="M9 13h6M9 16h4"/>
+                </svg>
+              </div>
+              <span className="live-stock-add-text">
+                Cargar desde<br />Stock
+              </span>
+            </button>
+            <button className="live-stock-add-btn" type="button" onClick={onAddProduct}>
+              <div className="live-stock-add-icon" aria-hidden="true">+</div>
+              <span className="live-stock-add-text">
+                Añadir<br />Nuevo
+              </span>
+            </button>
+          </div>
 
           {/* Section label */}
           <div className="live-stock-section-header">

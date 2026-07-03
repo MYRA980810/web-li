@@ -11,20 +11,25 @@ import {
 } from '@/hooks/useLiveChat'
 import { LiveStockDrawer, type LiveProduct } from './LiveStockDrawer'
 import { LiveAddProductDrawer } from './LiveAddProductDrawer'
+import { LiveCatalogProductDrawer } from './LiveCatalogProductDrawer'
 import { ProductCountdown } from './ProductCountdown'
+import type { ProductView, Category } from '@/lib/types'
 
 export type SellerLiveBroadcastProps = {
   live: LiveResponse
   videoTrack: ICameraVideoTrack | null
   storeName: string
   onEnd: () => void
+  products: ProductView[]
+  categories: Category[]
 }
 
-export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: SellerLiveBroadcastProps) {
+export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd, products, categories }: SellerLiveBroadcastProps) {
   const [replyText,      setReplyText]      = useState('')
   const [revenue]                           = useState(15800)
   const [stockOpen,      setStockOpen]      = useState(false)
   const [addProductOpen, setAddProductOpen] = useState(false)
+  const [catalogOpen,    setCatalogOpen]    = useState(false)
   const [featured,       setFeatured]       = useState<LiveProduct | null>(null)
 
   const { messages, sendMessage, isConnected, isSending, viewerCount } = useLiveChat(live.id, {
@@ -200,6 +205,7 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
         onClose={() => setStockOpen(false)}
         onLaunch={(product) => setFeatured(product)}
         onAddProduct={() => { setStockOpen(false); setAddProductOpen(true) }}
+        onAddCatalogProduct={() => { setStockOpen(false); setCatalogOpen(true) }}
       />
 
       {/* ── Add product in live drawer ── */}
@@ -208,6 +214,16 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd }: Sell
         open={addProductOpen}
         onClose={() => setAddProductOpen(false)}
         onSave={(product) => { setFeatured(product); setAddProductOpen(false) }}
+      />
+
+      {/* ── Add catalog product to live drawer ── */}
+      <LiveCatalogProductDrawer
+        liveId={live.id}
+        open={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        products={products}
+        categories={categories}
+        onAdded={() => { setCatalogOpen(false); setStockOpen(true) }}
       />
 
       {/* ── Input bar ── */}

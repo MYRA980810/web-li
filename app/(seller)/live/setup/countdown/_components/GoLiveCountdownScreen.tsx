@@ -10,9 +10,12 @@ import type {
 import { Ambient } from '@/components/Ambient'
 import { startLive, endLive, type LiveResponse } from '@/lib/liveActions'
 import { SellerLiveBroadcast } from './SellerLiveBroadcast'
+import { LiveFinishedDrawer } from './LiveFinishedDrawer'
+import { GuidesGeneratingScreen } from './GuidesGeneratingScreen'
+import { GuidesReadyScreen } from './GuidesReadyScreen'
 import type { ProductView, Category } from '@/lib/types'
 
-type Phase = 'countdown' | 'publishing' | 'live' | 'error'
+type Phase = 'countdown' | 'publishing' | 'live' | 'finished' | 'generating-guides' | 'guides-ready' | 'error'
 type CameraState = 'connecting' | 'ready' | 'error'
 
 type AgoraTracks = {
@@ -37,6 +40,7 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
   const [count, setCount]               = useState(3)
   const [phase, setPhase]               = useState<Phase>('countdown')
   const [live, setLive]                 = useState<LiveResponse | null>(null)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
   const [cameraState, setCameraState]   = useState<CameraState>('connecting')
   const [fatalError, setFatalError]     = useState<string | null>(null)
   // Store video track in state so the play effect runs after the DOM update
@@ -165,11 +169,47 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
       tracksRef.current = null
     }
 
-    if (live) await endLive(live.id)
-    router.push('/home')
+    if (!live) { router.push('/home'); return }
+
+    const result = await endLive(live.id)
+    if (result.ok) setLive(result.live)
+    setPhase('finished')
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  // ── Post-live summary — orders ready for shipping ─────────────────────────────
+  if (phase === 'finished' && live) {
+    return (
+      <>
+        <Ambient />
+        <LiveFinishedDrawer
+          live={live}
+          onGenerateLabels={(orderIds) => {
+            setSelectedOrderIds(orderIds)
+            setPhase('generating-guides')
+          }}
+          onReviewOrders={() => router.push('/home')}
+        />
+      </>
+    )
+  }
+
+  // ── Generating shipping guides — mock progress, no tracking backend yet ───────
+  if (phase === 'generating-guides') {
+    return <GuidesGeneratingScreen onComplete={() => setPhase('guides-ready')} />
+  }
+
+  // ── Shipping guides ready — mock confirmation summary ─────────────────────────
+  if (phase === 'guides-ready') {
+    return (
+      <GuidesReadyScreen
+        orderCount={selectedOrderIds.length}
+        onDownloadPdf={() => router.push('/home')}
+        onGoToShipments={() => router.push('/home')}
+      />
+    )
+  }
 
   // ── Transition to live broadcast view ───────────────────────────────────────
   if (phase === 'live' && live) {

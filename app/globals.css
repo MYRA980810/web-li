@@ -524,6 +524,7 @@ input  { font-family: inherit; }
 .store-info-status-chip.active { background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.30); color: #4ade80; }
 .store-info-status-chip.closed { background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); color: #fbbf24; }
 .store-info-status-chip.suspended { background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.26); color: #f87171; }
+.store-info-status-chip.pending { background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.28); color: #fbbf24; }
 .store-info-stat-card { flex: 1; background: linear-gradient(145deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.04) 100%); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border: 1px solid rgba(255,255,255,0.14); border-radius: var(--r-lg); padding: 16px 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
 .store-info-stat-value { font-family: var(--font-display); font-size: 20px; font-weight: 900; line-height: 1; letter-spacing: -0.02em; }
 .store-info-stat-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); text-align: center; }
@@ -1367,3 +1368,48 @@ input  { font-family: inherit; }
 .live-success-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 2px solid var(--bg-0); background: rgba(255,255,255,0.06); margin-left: -10px; flex-shrink: 0; }
 .live-success-avatar:first-child { margin-left: 0; }
 .live-success-avatar-overflow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--bg-0); background: var(--grad-pink); color: #1a0612; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; margin-left: -10px; flex-shrink: 0; }
+
+/* ===== Live Finished Drawer ===== */
+.live-finished-header { padding: 20px 20px 0; text-align: center; flex-shrink: 0; }
+.live-finished-title { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--ink-0); margin: 0 0 6px; }
+.live-finished-subtitle { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--ink-3); margin: 0; }
+.live-finished-select-all { font-size: 12px; font-weight: 700; color: var(--brand-400); background: none; border: none; cursor: pointer; padding: 0; }
+.live-finished-select-all:hover { color: var(--brand-300); }
+.live-finished-order-check { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.30); background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .2s, border-color .2s; }
+.live-finished-order-check.checked { background: var(--grad-pink); border-color: transparent; box-shadow: var(--glow-pink-sm); }
+.live-finished-footer { padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.live-finished-secondary-btn { width: 100%; padding: 15px; border-radius: var(--r-pill); background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.14); color: var(--ink-1); font-size: 14px; font-weight: 700; cursor: pointer; transition: background .18s, border-color .18s; }
+.live-finished-secondary-btn:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.22); }
+.live-finished-info { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); margin: 4px 0 0; }
+
+/* ===== Live Guides — generating (loading) ===== */
+.live-guides-card { width: 100%; max-width: 340px; padding: 32px 24px 28px; display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+.live-guides-ring-wrap { position: relative; width: 168px; height: 168px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.live-guides-ring-percent { font-family: var(--font-display); font-size: 34px; font-weight: 900; line-height: 1; letter-spacing: -0.02em; }
+.live-guides-ring-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+.live-guides-title { font-family: var(--font-display); font-size: 21px; font-weight: 800; color: var(--ink-0); margin: 0; }
+.live-guides-subtitle { font-size: 13px; color: var(--ink-2); line-height: 1.55; max-width: 260px; margin: 0 auto; }
+.live-guides-checklist { width: 100%; display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.live-guides-step { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-3); transition: color .3s; }
+.live-guides-step.active, .live-guides-step.done { color: var(--ink-1); }
+.live-guides-step-icon { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+.live-guides-step-icon.pending { border: 1.5px solid rgba(255,255,255,0.16); }
+.live-guides-step-icon.done { background: var(--grad-pink); box-shadow: var(--glow-pink-sm); color: #1a0612; }
+.live-guides-step-icon.active { border: 2px solid transparent; border-top-color: var(--brand-500); border-right-color: rgba(255,31,135,0.38); animation: spin 1.1s cubic-bezier(.4,0,.6,1) infinite; }
+.live-guides-tip { display: flex; align-items: flex-start; gap: 8px; width: 100%; max-width: 340px; padding: 12px 14px; border-radius: var(--r-lg); background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.22); font-size: 12px; line-height: 1.5; color: #fbbf24; }
+
+/* ===== Live Guides — ready (confirmation) ===== */
+.live-guides-pickup-card { border-radius: var(--r-xl); padding: 16px 18px; border-left: 3px solid var(--brand-500); background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)); border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+.live-guides-pickup-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.live-guides-pickup-label { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand-400); }
+.live-guides-pickup-row { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--ink-1); line-height: 1.5; text-align: left; }
+.live-guides-pickup-row .icon { flex-shrink: 0; color: var(--ink-3); }
+.live-guides-warning { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--r-md); background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.22); font-size: 12px; font-weight: 600; color: #fbbf24; line-height: 1.4; text-align: left; }
+
+.live-guides-summary-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.live-guides-summary-card { flex-shrink: 0; width: 150px; padding: 14px; border-radius: var(--r-lg); background: rgba(255,255,255,0.03); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.live-guides-summary-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--grad-pink); color: #1a0612; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
+.live-guides-summary-name { font-size: 13px; font-weight: 700; color: var(--ink-0); line-height: 1.3; }
+.live-guides-summary-product { font-size: 11px; color: var(--ink-3); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.live-guides-summary-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+.live-guides-summary-code { font-size: 11px; font-weight: 700; color: var(--ink-2); }

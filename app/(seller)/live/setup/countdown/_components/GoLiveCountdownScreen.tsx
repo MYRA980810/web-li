@@ -69,7 +69,10 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
     ;(async () => {
       let stream: MediaStream
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+          audio: true,
+        })
       } catch (err) {
         if (cancelled) return
         const name = err instanceof DOMException ? err.name : ''
@@ -86,8 +89,8 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
 
       try {
         if (broadcast.ivsIngestEndpoint && broadcast.ivsStreamKeyValue) {
-          const { create, BASIC_LANDSCAPE } = await import('amazon-ivs-web-broadcast')
-          const client = create({ ingestEndpoint: broadcast.ivsIngestEndpoint, streamConfig: BASIC_LANDSCAPE })
+          const { create, STANDARD_LANDSCAPE } = await import('amazon-ivs-web-broadcast')
+          const client = create({ ingestEndpoint: broadcast.ivsIngestEndpoint, streamConfig: STANDARD_LANDSCAPE })
           await client.addVideoInputDevice(stream, 'camera', { index: 0 })
           await client.addAudioInputDevice(stream, 'mic')
 

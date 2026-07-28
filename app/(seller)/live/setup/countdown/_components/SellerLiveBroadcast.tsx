@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { ICameraVideoTrack } from 'agora-rtc-sdk-ng'
 import { expirePinLiveProduct, type LiveResponse } from '@/lib/liveActions'
 import {
   useLiveChat,
@@ -17,14 +16,14 @@ import type { ProductView, Category } from '@/lib/types'
 
 export type SellerLiveBroadcastProps = {
   live: LiveResponse
-  videoTrack: ICameraVideoTrack | null
+  stream: MediaStream | null
   storeName: string
   onEnd: () => void
   products: ProductView[]
   categories: Category[]
 }
 
-export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd, products, categories }: SellerLiveBroadcastProps) {
+export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, categories }: SellerLiveBroadcastProps) {
   const [replyText,      setReplyText]      = useState('')
   const [revenue]                           = useState(15800)
   const [stockOpen,      setStockOpen]      = useState(false)
@@ -48,11 +47,12 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd, produc
   })
 
   const chatBottomRef = useRef<HTMLDivElement>(null)
+  const videoRef      = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    if (!videoTrack) return
-    videoTrack.play('agora-live-video', { fit: 'cover' })
-  }, [videoTrack])
+    if (!stream || !videoRef.current) return
+    videoRef.current.srcObject = stream
+  }, [stream])
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -86,8 +86,8 @@ export function SellerLiveBroadcast({ live, videoTrack, storeName, onEnd, produc
   return (
     <div className="seller-live-stage">
 
-      {/* Agora full-screen video */}
-      <div id="agora-live-video" className="seller-live-video" />
+      {/* Full-screen camera preview */}
+      <video ref={videoRef} muted autoPlay playsInline className="seller-live-video object-cover" />
 
       {/* Gradient overlays for UI legibility */}
       <div className="seller-live-top-fade" />

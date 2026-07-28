@@ -13,7 +13,6 @@ export type LiveResponse = {
   title: string
   status: 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED'
   agoraChannelId: string | null
-  streamToken: string | null
   thumbnailUrl: string | null
   scheduledAt: string | null
   startedAt: string | null
@@ -21,6 +20,7 @@ export type LiveResponse = {
   peakViewers: number
   displayDurationSeconds: number
   createdAt: string
+  ivsPlaybackUrl: string | null
 }
 
 // ─── createLive ───────────────────────────────────────────────────────────────
@@ -502,8 +502,15 @@ export async function getLiveById(liveId: string): Promise<LiveResponse | null> 
 
 // ─── startLive ────────────────────────────────────────────────────────────────
 
+export type LiveBroadcastResponse = {
+  live: LiveResponse
+  streamToken: string | null
+  ivsIngestEndpoint: string | null
+  ivsStreamKeyValue: string | null
+}
+
 export type StartLiveResult =
-  | { ok: true;  live: LiveResponse }
+  | { ok: true;  broadcast: LiveBroadcastResponse }
   | { ok: false; error: string }
 
 export async function startLive(liveId: string, rtcUid: string): Promise<StartLiveResult> {
@@ -526,6 +533,6 @@ export async function startLive(liveId: string, rtcUid: string): Promise<StartLi
     return { ok: false, error }
   }
 
-  const live = await res.json()
-  return { ok: true, live: live as LiveResponse }
+  const broadcast = await res.json()
+  return { ok: true, broadcast: broadcast as LiveBroadcastResponse }
 }

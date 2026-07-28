@@ -2,13 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import type {
-  IAgoraRTCClient,
-  ICameraVideoTrack,
-  IMicrophoneAudioTrack,
-} from 'agora-rtc-sdk-ng'
+import type { IAgoraRTCClient, ILocalAudioTrack, ILocalVideoTrack } from 'agora-rtc-sdk-ng'
+import type { AmazonIVSBroadcastClient } from 'amazon-ivs-web-broadcast'
 import { Ambient } from '@/components/Ambient'
-import { startLive, endLive, type LiveResponse } from '@/lib/liveActions'
+import { startLive, endLive, type LiveResponse, type LiveBroadcastResponse } from '@/lib/liveActions'
 import { SellerLiveBroadcast } from './SellerLiveBroadcast'
 import { LiveFinishedDrawer } from './LiveFinishedDrawer'
 import { GuidesGeneratingScreen } from './GuidesGeneratingScreen'
@@ -18,11 +15,9 @@ import type { ProductView, Category } from '@/lib/types'
 type Phase = 'countdown' | 'publishing' | 'live' | 'finished' | 'generating-guides' | 'guides-ready' | 'error'
 type CameraState = 'connecting' | 'ready' | 'error'
 
-type AgoraTracks = {
-  client: IAgoraRTCClient
-  video: ICameraVideoTrack
-  audio: IMicrophoneAudioTrack
-}
+type BroadcastHandle =
+  | { provider: 'ivs'; client: AmazonIVSBroadcastClient; streamKey: string }
+  | { provider: 'agora'; client: IAgoraRTCClient; video: ILocalVideoTrack; audio: ILocalAudioTrack }
 
 type Props = {
   liveId: string
@@ -39,18 +34,20 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
 
   const [count, setCount]               = useState(3)
   const [phase, setPhase]               = useState<Phase>('countdown')
+  const [broadcast, setBroadcast]       = useState<LiveBroadcastResponse | null>(null)
   const [live, setLive]                 = useState<LiveResponse | null>(null)
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
   const [cameraState, setCameraState]   = useState<CameraState>('connecting')
   const [fatalError, setFatalError]     = useState<string | null>(null)
-  // Store video track in state so the play effect runs after the DOM update
-  const [videoTrack, setVideoTrack]     = useState<ICameraVideoTrack | null>(null)
+  // Store the raw camera stream in state so the srcObject effect runs after the DOM update
+  const [mediaStream, setMediaStream]   = useState<MediaStream | null>(null)
 
-  const startedRef   = useRef(false)
-  const endingRef    = useRef(false)
-  const publishedRef = useRef(false)
-  const tracksRef    = useRef<AgoraTracks | null>(null)
-  const videoRef     = useRef<HTMLDivElement>(null)
+  const startedRef     = useRef(false)
+  const endingRef       = useRef(false)
+  const publishedRef    = useRef(false)
+  const handleRef       = useRef<BroadcastHandle | null>(null)
+  const mediaStreamRef  = useRef<MediaStream | null>(null)
+  const videoRef        = useRef<HTMLVideoElement>(null)
 
   // ── 1. Call startLive once ────────────────────────────────────────────────────
   useEffect(() => {
@@ -58,72 +55,121 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
     startedRef.current = true
 
     startLive(liveId, String(rtcUid.current)).then((result) => {
-      if (result.ok) setLive(result.live)
+      if (result.ok) { setBroadcast(result.broadcast); setLive(result.broadcast.live) }
       else { setFatalError(result.error); setPhase('error') }
     })
   }, [liveId])
 
-  // ── 2. Join Agora + create tracks (no play() here) ───────────────────────────
+  // ── 2. Get camera/mic once, then wire the active video provider ──────────────
   useEffect(() => {
-    if (!live?.agoraChannelId || !live?.streamToken) return
-
-    const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID ?? ''
-    if (!appId) { setCameraState('error'); return }
+    if (!broadcast) return
 
     let cancelled = false
 
     ;(async () => {
+      let stream: MediaStream
       try {
-        const AgoraRTC = (await import('agora-rtc-sdk-ng')).default
-        AgoraRTC.setLogLevel(3)
-
-        const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' })
-        await client.setClientRole('host')
-        await client.join(appId, live.agoraChannelId!, live.streamToken!, rtcUid.current)
-
-        const [video, audio] = await Promise.all([
-          AgoraRTC.createCameraVideoTrack(),
-          AgoraRTC.createMicrophoneAudioTrack(),
-        ])
-
-        if (cancelled) {
-          video.close(); audio.close(); await client.leave(); return
-        }
-
-        tracksRef.current = { client, video, audio }
-
-        // Set state — triggers re-render first (overlay removed), then effect #3 plays video
-        setCameraState('ready')
-        setVideoTrack(video)
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       } catch (err) {
         if (cancelled) return
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error('[Agora] setup error:', err)
+        const name = err instanceof DOMException ? err.name : ''
+        const msg  = err instanceof Error ? err.message : String(err)
+        console.error('[Camera] getUserMedia error:', err)
         setCameraState('error')
-        if (msg.includes('PERMISSION_DENIED') || msg.includes('NotAllowedError')) {
+        if (name === 'NotAllowedError' || msg.includes('PERMISSION_DENIED') || msg.includes('NotAllowedError')) {
           setFatalError('Permiso denegado. Habilitá cámara y micrófono en Configuración del Sistema → Privacidad.')
         }
+        return
+      }
+
+      if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
+
+      try {
+        if (broadcast.ivsIngestEndpoint && broadcast.ivsStreamKeyValue) {
+          const { create, BASIC_LANDSCAPE } = await import('amazon-ivs-web-broadcast')
+          const client = create({ ingestEndpoint: broadcast.ivsIngestEndpoint, streamConfig: BASIC_LANDSCAPE })
+          await client.addVideoInputDevice(stream, 'camera', { index: 0 })
+          await client.addAudioInputDevice(stream, 'mic')
+
+          if (cancelled) {
+            client.delete()
+            stream.getTracks().forEach((t) => t.stop())
+            return
+          }
+
+          handleRef.current = { provider: 'ivs', client, streamKey: broadcast.ivsStreamKeyValue }
+        } else if (broadcast.streamToken) {
+          const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID ?? ''
+          if (!appId) {
+            setCameraState('error')
+            stream.getTracks().forEach((t) => t.stop())
+            return
+          }
+
+          const AgoraRTC = (await import('agora-rtc-sdk-ng')).default
+          AgoraRTC.setLogLevel(3)
+
+          const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' })
+          await client.setClientRole('host')
+          await client.join(appId, broadcast.live.agoraChannelId!, broadcast.streamToken, rtcUid.current)
+
+          const video = AgoraRTC.createCustomVideoTrack({ mediaStreamTrack: stream.getVideoTracks()[0] })
+          const audio = AgoraRTC.createCustomAudioTrack({ mediaStreamTrack: stream.getAudioTracks()[0] })
+
+          if (cancelled) {
+            video.close(); audio.close()
+            void client.leave()
+            stream.getTracks().forEach((t) => t.stop())
+            return
+          }
+
+          handleRef.current = { provider: 'agora', client, video, audio }
+        } else {
+          setCameraState('error')
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+
+        mediaStreamRef.current = stream
+
+        // Set state — triggers re-render first (overlay removed), then effect #3 assigns srcObject
+        setCameraState('ready')
+        setMediaStream(stream)
+      } catch (err) {
+        if (cancelled) return
+        console.error('[Broadcast] setup error:', err)
+        setCameraState('error')
+        stream.getTracks().forEach((t) => t.stop())
       }
     })()
 
     return () => {
       cancelled = true
-      if (tracksRef.current) {
-        const { client, video, audio } = tracksRef.current
-        video.stop(); video.close()
-        audio.stop(); audio.close()
-        void client.leave()
-        tracksRef.current = null
+
+      const stream = mediaStreamRef.current
+      if (stream) stream.getTracks().forEach((t) => t.stop())
+      mediaStreamRef.current = null
+
+      const handle = handleRef.current
+      if (handle) {
+        if (handle.provider === 'ivs') {
+          handle.client.stopBroadcast()
+          handle.client.delete()
+        } else {
+          handle.video.stop(); handle.video.close()
+          handle.audio.stop(); handle.audio.close()
+          void handle.client.leave()
+        }
+        handleRef.current = null
       }
     }
-  }, [live?.agoraChannelId, live?.streamToken])
+  }, [broadcast])
 
-  // ── 3. Play video AFTER React commits the DOM with cameraState='ready' ────────
+  // ── 3. Assign srcObject AFTER React commits the DOM with cameraState='ready' ──
   useEffect(() => {
-    if (!videoTrack) return
-    // Use string ID — more reliable than ref when element dimensions are dynamic
-    videoTrack.play('agora-local-video', { fit: 'cover' })
-  }, [videoTrack])
+    if (!mediaStream || !videoRef.current) return
+    videoRef.current.srcObject = mediaStream
+  }, [mediaStream])
 
   // ── 4. Countdown tick — purely visual, does not gate publishing ───────────────
   useEffect(() => {
@@ -147,9 +193,12 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
 
     publishedRef.current = true
     void (async () => {
-      const tracks = tracksRef.current
-      if (tracks) {
-        try { await tracks.client.publish([tracks.video, tracks.audio]) }
+      const handle = handleRef.current
+      if (handle?.provider === 'ivs') {
+        try { await handle.client.startBroadcast(handle.streamKey) }
+        catch (err) { console.error('[IVS] startBroadcast error:', err) }
+      } else if (handle?.provider === 'agora') {
+        try { await handle.client.publish([handle.video, handle.audio]) }
         catch (err) { console.error('[Agora] publish error:', err) }
       }
       setPhase('live')
@@ -161,12 +210,21 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
     if (endingRef.current) return
     endingRef.current = true
 
-    const tracks = tracksRef.current
-    if (tracks) {
-      tracks.video.stop(); tracks.video.close()
-      tracks.audio.stop(); tracks.audio.close()
-      await tracks.client.leave()
-      tracksRef.current = null
+    const stream = mediaStreamRef.current
+    if (stream) stream.getTracks().forEach((t) => t.stop())
+    mediaStreamRef.current = null
+
+    const handle = handleRef.current
+    if (handle) {
+      if (handle.provider === 'ivs') {
+        handle.client.stopBroadcast()
+        handle.client.delete()
+      } else {
+        handle.video.stop(); handle.video.close()
+        handle.audio.stop(); handle.audio.close()
+        await handle.client.leave()
+      }
+      handleRef.current = null
     }
 
     if (!live) { router.push('/home'); return }
@@ -216,7 +274,7 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
     return (
       <SellerLiveBroadcast
         live={live}
-        videoTrack={videoTrack}
+        stream={mediaStream}
         storeName={live.title}
         onEnd={handleEnd}
         products={products}
@@ -271,13 +329,15 @@ export function GoLiveCountdownScreen({ liveId, products, categories }: Props) {
             {cameraState === 'ready' ? 'LIVE' : 'PREP'}
           </div>
 
-          {/* Fixed pixel height — Agora needs non-zero dimensions on the target element */}
+          {/* Fixed pixel height — the preview element needs non-zero dimensions */}
           <div style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', flexShrink: 0 }}>
-            {/* id used by videoTrack.play() — always in DOM, never conditional */}
-            <div
-              id="agora-local-video"
+            {/* always in DOM, never conditional — srcObject is assigned once the stream is ready */}
+            <video
               ref={videoRef}
-              style={{ width: '100%', height: '200px', background: '#111' }}
+              muted
+              autoPlay
+              playsInline
+              style={{ width: '100%', height: '200px', background: '#111', objectFit: 'cover' }}
             />
 
             {cameraState !== 'ready' && (

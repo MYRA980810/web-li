@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
+import { ImageLightbox } from './ImageLightbox'
 import type { ProductView } from '@/lib/types'
 
 function formatPrice(price: number, currency: string): string {
@@ -13,6 +15,7 @@ function formatPrice(price: number, currency: string): string {
 
 function ImageGallery({ product }: { product: ProductView }) {
   const [activeIdx, setActiveIdx] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const images = product.images.slice().sort((a, b) => a.position - b.position)
 
   if (images.length === 0) {
@@ -25,7 +28,16 @@ function ImageGallery({ product }: { product: ProductView }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="product-detail-hero">
+      <div
+        className="product-detail-hero cursor-zoom-in"
+        onClick={() => setLightboxOpen(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') setLightboxOpen(true)
+        }}
+        aria-label="Ver imagen completa"
+      >
         <Image
           src={images[activeIdx]!.url}
           alt={product.name}
@@ -33,6 +45,11 @@ function ImageGallery({ product }: { product: ProductView }) {
           height={220}
           className="product-detail-hero-img"
         />
+        <span className="product-detail-hero-zoom-hint" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M1 5V1h4M14 5V1h-4M1 10v4h4M14 10v4h-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
       </div>
       {images.length > 1 && (
         <div className="product-gallery-thumbs">
@@ -54,6 +71,17 @@ function ImageGallery({ product }: { product: ProductView }) {
             </button>
           ))}
         </div>
+      )}
+
+      {lightboxOpen && (
+        <ImageLightbox
+          images={images}
+          index={activeIdx}
+          title={product.name}
+          eyebrow={product.categoryName}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={setActiveIdx}
+        />
       )}
     </div>
   )
@@ -198,6 +226,8 @@ function DetailContent({ product }: { product: ProductView }) {
 type Props = { product: ProductView | null }
 
 export function ProductDetailScreen({ product }: Props) {
+  const router = useRouter()
+
   return (
     <>
       <Ambient />
@@ -205,9 +235,9 @@ export function ProductDetailScreen({ product }: Props) {
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
         <div className="store-back-header">
-          <Link href="/store/stock" className="store-back-btn" aria-label="Volver">
+          <button onClick={() => router.back()} className="store-back-btn" aria-label="Volver">
             ←
-          </Link>
+          </button>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-[9px] font-bold tracking-[0.20em] text-(--ink-3) uppercase">
               Gestión de Producto
@@ -230,12 +260,12 @@ export function ProductDetailScreen({ product }: Props) {
       {/* ===== DESKTOP ===== */}
       <div className="hidden lg:flex flex-col stage screen-enter">
         <div className="sticky top-0 z-20 flex items-center justify-between px-12 py-5 border-b border-(--line) bg-(--bg-0)/85 backdrop-blur-xl">
-          <Link
-            href="/store/stock"
+          <button
+            onClick={() => router.back()}
             className="flex items-center gap-2 text-[14px] font-semibold text-brand-400 hover:text-brand-300 transition-colors"
           >
             ← Volver
-          </Link>
+          </button>
           <div className="flex flex-col items-center">
             <span className="text-[9px] font-bold tracking-[0.20em] text-(--ink-3) uppercase">
               Gestión de Producto

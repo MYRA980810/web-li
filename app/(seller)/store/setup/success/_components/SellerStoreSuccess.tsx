@@ -35,9 +35,9 @@ function SuccessContent() {
             </p>
           </div>
 
-          <button className="live-launch-btn w-full justify-center text-[14px]">
+          <Link href="/store/products/new" className="live-launch-btn w-full justify-center text-[14px]">
             Cargar Productos
-          </button>
+          </Link>
         </div>
 
         <div className="px-5 mt-8 reveal d2">
@@ -82,9 +82,9 @@ function SuccessContent() {
               </p>
             </div>
 
-            <button className="live-launch-btn justify-center text-[14px]">
+            <Link href="/store/products/new" className="live-launch-btn justify-center text-[14px]">
               Cargar Productos
-            </button>
+            </Link>
 
             <div className="store-tips-card w-full text-left">
               <div className="flex items-center gap-3 mb-3">

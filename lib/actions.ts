@@ -1,6 +1,7 @@
 'use server'
 
-import { setSessionCookie, setRefreshTokenCookie, extractRefreshTokenFromSetCookie } from './session'
+import { redirect } from 'next/navigation'
+import { setSessionCookie, setRefreshTokenCookie, extractRefreshTokenFromSetCookie, clearSessionCookies, getRefreshToken } from './session'
 import {
   registerSchema,
   verifyOtpSchema,
@@ -282,6 +283,25 @@ export async function completeGoogleAuth(
   await storeRefreshToken(res)
 
   return { ok: true }
+}
+
+export async function logout(): Promise<void> {
+  const refreshToken = await getRefreshToken()
+  if (refreshToken) {
+    try {
+      await fetch(`${API}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          Cookie: `refresh_token=${refreshToken}`,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      })
+    } catch {
+      // best-effort server-side revoke — local cookies are cleared below regardless
+    }
+  }
+  await clearSessionCookies()
+  redirect('/login')
 }
 
 export async function resendOtp(pendingToken: string): Promise<ActionResult> {

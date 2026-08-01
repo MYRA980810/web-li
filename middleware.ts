@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
 
-const SELLER_PREFIXES = ['/home', '/store', '/live']
+const SELLER_PREFIXES = ['/home', '/store', '/live', '/perfil', '/seller/payout']
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -170,5 +170,8 @@ export const config = {
     '/store/:path+',
     '/live',
     '/live/:path+',
+    '/perfil',
+    '/perfil/:path+',
+    '/seller/payout/:path+',
   ],
 }

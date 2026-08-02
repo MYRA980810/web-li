@@ -40,14 +40,16 @@ function SettingItem({
   label,
   description,
   locked,
+  href,
 }: {
   icon: string
   label: string
   description: string
   locked: boolean
+  href?: string
 }) {
-  return (
-    <div className={`profile-setting-item ${locked ? 'locked' : 'active'}`}>
+  const inner = (
+    <>
       <div className="profile-setting-icon text-[18px]">{icon}</div>
       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
         <span className="text-[13px] font-bold text-(--ink-0) leading-snug">{label}</span>
@@ -56,8 +58,18 @@ function SettingItem({
       <span className="text-(--ink-3) flex-shrink-0">
         {locked ? <LockIcon /> : <ChevronRight />}
       </span>
-    </div>
+    </>
   )
+
+  if (href && !locked) {
+    return (
+      <Link href={href} className="profile-setting-item active">
+        {inner}
+      </Link>
+    )
+  }
+
+  return <div className={`profile-setting-item ${locked ? 'locked' : 'active'}`}>{inner}</div>
 }
 
 function ProfileContent({ productCount, profile }: Props) {
@@ -125,27 +137,31 @@ function ProfileContent({ productCount, profile }: Props) {
 
         <SettingItem
           icon="💳"
-          label="Datos Bancarios"
+          label="Métodos de Pago"
           description="Para recibir tus pagos"
-          locked
-        />
-        <SettingItem
-          icon="🏪"
-          label="Datos de la Tienda"
-          description="Información de tu negocio"
-          locked
+          locked={false}
+          href="/perfil/pagos"
         />
         <SettingItem
           icon="🔔"
           label="Notificaciones"
           description="Alertas y avisos"
-          locked
+          locked={false}
+          href="/perfil/notificaciones"
         />
         <SettingItem
           icon="🛡"
           label="Seguridad y Privacidad"
           description="Gestioná tu cuenta"
-          locked
+          locked={false}
+          href="/perfil/seguridad"
+        />
+        <SettingItem
+          icon="📍"
+          label="Direcciones"
+          description="Tus puntos de envío"
+          locked={false}
+          href="/perfil/direcciones"
         />
         <SettingItem
           icon="❓"

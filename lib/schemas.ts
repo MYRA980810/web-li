@@ -118,16 +118,35 @@ export const createLiveSchema = z.object({
 
 export type CreateLiveInput = z.infer<typeof createLiveSchema>
 
-export const addSellerAddressSchema = z.object({
+const sellerAddressBaseSchema = z.object({
   street:       z.string().min(1, 'La dirección es requerida').max(255),
-  extNumber:    z.string().max(20).optional(),
+  extNumber:    z.string().min(1, 'El número exterior es requerido').max(20),
   intNumber:    z.string().max(20).optional(),
   neighborhood: z.string().max(100).optional(),
   city:         z.string().min(1, 'La ciudad es requerida').max(100),
   state:        z.string().min(1, 'El estado es requerido').max(100),
   zipCode:      z.string().min(1, 'El código postal es requerido').max(10),
   country:      z.string().min(1, 'El país es requerido').max(3),
-  isDefault:    z.boolean(),
+  latitude:     z.number().min(-90).max(90).optional(),
+  longitude:    z.number().min(-180).max(180).optional(),
+  addressType:  z.enum(['RESIDENTIAL_BUILDING', 'STORE', 'APARTMENT', 'HOTEL', 'OFFICE', 'OTHER']),
 })
 
+function requireLatLngTogether(data: { latitude?: number; longitude?: number }) {
+  return (data.latitude === undefined) === (data.longitude === undefined)
+}
+
+// path required — lib/profileActions.ts only reads fieldErrors, not formErrors,
+// so a refine error with no path would silently fall back to a generic message
+const LAT_LNG_REFINE_OPTS = { message: 'Latitud y longitud deben enviarse juntas', path: ['latitude'] }
+
+export const addSellerAddressSchema = sellerAddressBaseSchema
+  .extend({ isDefault: z.boolean() })
+  .refine(requireLatLngTogether, LAT_LNG_REFINE_OPTS)
+
 export type AddSellerAddressInput = z.infer<typeof addSellerAddressSchema>
+
+export const updateSellerAddressSchema = sellerAddressBaseSchema
+  .refine(requireLatLngTogether, LAT_LNG_REFINE_OPTS)
+
+export type UpdateSellerAddressInput = z.infer<typeof updateSellerAddressSchema>

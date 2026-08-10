@@ -1,5 +1,7 @@
 import { DireccionesScreen } from './_components/DireccionesScreen'
+import { getSellerAddresses } from '@/lib/profileActions'
 
-export default function DireccionesPage() {
-  return <DireccionesScreen />
+export default async function DireccionesPage() {
+  const addresses = await getSellerAddresses()
+  return <DireccionesScreen addresses={addresses} />
 }

@@ -59,3 +59,30 @@ export type Category = {
   name: string
   slug: string
 }
+
+export type AddressType = 'RESIDENTIAL_BUILDING' | 'STORE' | 'APARTMENT' | 'HOTEL' | 'OFFICE' | 'OTHER'
+
+export const ADDRESS_TYPE_META: Record<AddressType, { variant: string; emoji: string; label: string }> = {
+  RESIDENTIAL_BUILDING: { variant: 'home', emoji: '🏠', label: 'Edificio residencial' },
+  OFFICE: { variant: 'office', emoji: '💼', label: 'Oficinas' },
+  STORE: { variant: 'store', emoji: '🏬', label: 'Tienda' },
+  APARTMENT: { variant: 'apartment', emoji: '🏢', label: 'Apartamento' },
+  HOTEL: { variant: 'hotel', emoji: '🏨', label: 'Hotel' },
+  OTHER: { variant: 'other', emoji: '📍', label: 'Otro' },
+}
+
+export type SellerAddressView = {
+  id: string
+  street: string
+  extNumber: string | null
+  intNumber: string | null
+  neighborhood: string | null
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  isDefault: boolean
+  latitude: number | null
+  longitude: number | null
+  addressType: AddressType
+}

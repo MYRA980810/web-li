@@ -1,8 +1,16 @@
-'use client'
-
 import Link from 'next/link'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
+import { ADDRESS_TYPE_META, type SellerAddressView } from '@/lib/types'
+
+function formatAddressLine(address: SellerAddressView): string {
+  const line1 = [
+    address.street + (address.extNumber ? ` ${address.extNumber}` : ''),
+    address.intNumber,
+    address.neighborhood,
+  ].filter(Boolean).join(', ')
+  return `${line1}. ${address.city}, CP ${address.zipCode}.`
+}
 
 const GearIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -34,7 +42,7 @@ const TruckIcon = () => (
   </svg>
 )
 
-function DireccionesContent() {
+function DireccionesContent({ addresses }: { addresses: SellerAddressView[] }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
@@ -44,42 +52,33 @@ function DireccionesContent() {
         </h1>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <div className="address-card">
-          <div className="address-card-top">
-            <div className="address-icon home">🏠</div>
-            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-bold text-(--ink-0)">Home</span>
-                <span className="address-badge-primary">Principal</span>
+      {addresses.length === 0 ? (
+        <p className="address-text">Todavía no guardaste ninguna dirección.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {addresses.map((address) => {
+            const meta = ADDRESS_TYPE_META[address.addressType]
+            return (
+              <div key={address.id} className="address-card">
+                <div className="address-card-top">
+                  <div className={`address-icon ${meta.variant}`}>{meta.emoji}</div>
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-bold text-(--ink-0)">{meta.label}</span>
+                      {address.isDefault && <span className="address-badge-primary">Principal</span>}
+                    </div>
+                    <p className="address-text">{formatAddressLine(address)}</p>
+                  </div>
+                </div>
+                <div className="address-actions">
+                  <Link href={`/perfil/direcciones/${address.id}/editar`} className="address-link-edit">Editar</Link>
+                  <span className="address-link-delete">Eliminar</span>
+                </div>
               </div>
-              <p className="address-text">
-                Avenida Insurgentes Sur 1234, Torre B, Piso 5. Ciudad de México, CP 03100.
-              </p>
-            </div>
-          </div>
-          <div className="address-actions">
-            <span className="address-link-edit">Editar</span>
-            <span className="address-link-delete">Eliminar</span>
-          </div>
+            )
+          })}
         </div>
-
-        <div className="address-card">
-          <div className="address-card-top">
-            <div className="address-icon office">💼</div>
-            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-              <span className="text-[13px] font-bold text-(--ink-0)">Office</span>
-              <p className="address-text">
-                Paseo de la Reforma 250, Edificio Capital, Oficina 1201. Juárez, CP 06600.
-              </p>
-            </div>
-          </div>
-          <div className="address-actions">
-            <span className="address-link-edit">Editar</span>
-            <span className="address-link-delete">Eliminar</span>
-          </div>
-        </div>
-      </div>
+      )}
 
       <button type="button" className="live-launch-btn w-full justify-center" disabled>
         <span className="mr-1.5">＋</span>
@@ -107,7 +106,7 @@ function DireccionesContent() {
   )
 }
 
-export function DireccionesScreen() {
+export function DireccionesScreen({ addresses }: { addresses: SellerAddressView[] }) {
   return (
     <>
       <Ambient />
@@ -130,7 +129,7 @@ export function DireccionesScreen() {
         </div>
 
         <div className="px-5 pt-6 pb-2 reveal d1">
-          <DireccionesContent />
+          <DireccionesContent addresses={addresses} />
         </div>
 
         <SellerBottomNav active="perfil" />
@@ -159,7 +158,7 @@ export function DireccionesScreen() {
 
         <div className="flex items-start justify-center py-10 px-8">
           <div className="w-full max-w-sm">
-            <DireccionesContent />
+            <DireccionesContent addresses={addresses} />
           </div>
         </div>
       </div>

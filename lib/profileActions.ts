@@ -1,7 +1,8 @@
 'use server'
 
-import { addSellerAddressSchema, type AddSellerAddressInput } from './schemas'
+import { addSellerAddressSchema, type AddSellerAddressInput, updateSellerAddressSchema, type UpdateSellerAddressInput } from './schemas'
 import { API, parseProblemDetail, requireToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import type { SellerAddressView } from './types'
 
 export type UserProfile = {
   id: string
@@ -180,6 +181,18 @@ export async function createEmbeddedOnboardingSession(): Promise<CreateEmbeddedO
   return { ok: true, clientSecret: data.clientSecret as string }
 }
 
+export async function getSellerAddresses(): Promise<SellerAddressView[]> {
+  const token = await requireToken()
+  try {
+    const res = await fetchWithAuth(`${API}/api/seller/addresses`, { headers: {} }, token)
+    if (!res.ok) return []
+    return res.json() as Promise<SellerAddressView[]>
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return []
+  }
+}
+
 export type AddSellerAddressResult =
   | { ok: true }
   | { ok: false; error: string }
@@ -197,6 +210,35 @@ export async function addSellerAddress(payload: AddSellerAddressInput): Promise<
   try {
     res = await fetchWithAuth(`${API}/api/seller/addresses`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(parsed.data),
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  return { ok: true }
+}
+
+export async function updateSellerAddress(addressId: string, payload: UpdateSellerAddressInput): Promise<AddSellerAddressResult> {
+  const parsed = updateSellerAddressSchema.safeParse(payload)
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+    return { ok: false, error: first ?? 'Datos inválidos' }
+  }
+
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/seller/addresses/${addressId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(parsed.data),
     }, token)

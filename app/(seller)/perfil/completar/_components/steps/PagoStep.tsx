@@ -1,17 +1,25 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getPayoutStatus, createPayoutOnboardingLink, type PayoutStatus } from '@/lib/profileActions'
+import {
+  getPayoutStatus,
+  createPayoutOnboardingLink,
+  createEmbeddedOnboardingSession,
+  type PayoutStatus,
+} from '@/lib/profileActions'
+import { EmbeddedPayoutOnboarding } from './EmbeddedPayoutOnboarding'
 
 export type PagoStepProps = {
   onNext: () => void
   retry?: boolean
 }
 
+type Mode = 'idle' | 'embedded' | 'linking'
+
 export function PagoStep({ onNext, retry = false }: PagoStepProps) {
   const [status, setStatus] = useState<PayoutStatus | null>(null)
   const [checking, setChecking] = useState(true)
-  const [connecting, setConnecting] = useState(false)
+  const [mode, setMode] = useState<Mode>('idle')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -26,16 +34,44 @@ export function PagoStep({ onNext, retry = false }: PagoStepProps) {
     }
   }, [])
 
-  async function handleConnect() {
-    setError(null)
-    setConnecting(true)
+  async function fallbackToLink() {
+    setMode('linking')
     const result = await createPayoutOnboardingLink()
     if (!result.ok) {
-      setConnecting(false)
+      setMode('idle')
       setError(result.error)
       return
     }
     window.location.href = result.url
+  }
+
+  async function handleConnect() {
+    setError(null)
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''
+    if (!publishableKey) {
+      await fallbackToLink()
+      return
+    }
+    setMode('embedded')
+  }
+
+  async function handleFetchClientSecret(): Promise<string> {
+    const result = await createEmbeddedOnboardingSession()
+    if (!result.ok) throw new Error(result.error)
+    return result.clientSecret
+  }
+
+  async function handleFallback(reason: string) {
+    console.warn('[PagoStep] embedded onboarding fallback:', reason)
+    await fallbackToLink()
+  }
+
+  async function handleExit() {
+    setMode('idle')
+    setChecking(true)
+    const result = await getPayoutStatus()
+    setStatus(result)
+    setChecking(false)
   }
 
   if (checking) {
@@ -90,14 +126,22 @@ export function PagoStep({ onNext, retry = false }: PagoStepProps) {
 
       {error && <p className="text-[12px] text-brand-400">{error}</p>}
 
-      <button
-        type="button"
-        onClick={handleConnect}
-        disabled={connecting}
-        className="live-launch-btn w-full justify-center text-[14px] disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {connecting ? 'Redirigiendo...' : 'Conectar con Stripe'}
-      </button>
+      {mode === 'embedded' ? (
+        <EmbeddedPayoutOnboarding
+          fetchClientSecret={handleFetchClientSecret}
+          onExit={handleExit}
+          onFallback={handleFallback}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={handleConnect}
+          disabled={mode === 'linking'}
+          className="live-launch-btn w-full justify-center text-[14px] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {mode === 'linking' ? 'Redirigiendo...' : 'Conectar con Stripe'}
+        </button>
+      )}
     </div>
   )
 }

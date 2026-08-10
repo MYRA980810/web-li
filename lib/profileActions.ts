@@ -153,6 +153,33 @@ export async function createPayoutOnboardingLink(): Promise<CreatePayoutOnboardi
   return { ok: true, url: data.url as string }
 }
 
+export type CreateEmbeddedOnboardingSessionResult =
+  | { ok: true; clientSecret: string }
+  | { ok: false; error: string }
+
+export async function createEmbeddedOnboardingSession(): Promise<CreateEmbeddedOnboardingSessionResult> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/seller/payout-account/embedded-onboarding-session`, {
+      method: 'POST',
+      headers: {},
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = await res.json()
+  return { ok: true, clientSecret: data.clientSecret as string }
+}
+
 export type AddSellerAddressResult =
   | { ok: true }
   | { ok: false; error: string }

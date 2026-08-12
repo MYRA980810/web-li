@@ -16,9 +16,10 @@ export type DireccionStepProps = {
   onNext: () => void
   mode?: 'create' | 'edit'
   existingAddress?: SellerAddressView
+  isFirstAddress?: boolean
 }
 
-export function DireccionStep({ onNext, mode = 'create', existingAddress }: DireccionStepProps) {
+export function DireccionStep({ onNext, mode = 'create', existingAddress, isFirstAddress = true }: DireccionStepProps) {
   const [street, setStreet] = useState(existingAddress?.street ?? '')
   const [extNumber, setExtNumber] = useState(existingAddress?.extNumber ?? '')
   const [intNumber, setIntNumber] = useState(existingAddress?.intNumber ?? '')
@@ -84,7 +85,7 @@ export function DireccionStep({ onNext, mode = 'create', existingAddress }: Dire
     setLoading(true)
     const result = mode === 'edit' && existingAddress
       ? await updateSellerAddress(existingAddress.id, basePayload)
-      : await addSellerAddress({ ...basePayload, isDefault: true })
+      : await addSellerAddress({ ...basePayload, isDefault: isFirstAddress })
     setLoading(false)
 
     if (!result.ok) {

@@ -80,10 +80,10 @@ function DireccionesContent({ addresses }: { addresses: SellerAddressView[] }) {
         </div>
       )}
 
-      <button type="button" className="live-launch-btn w-full justify-center" disabled>
+      <Link href="/perfil/direcciones/nueva" className="live-launch-btn w-full justify-center">
         <span className="mr-1.5">＋</span>
         Agregar Nueva Dirección
-      </button>
+      </Link>
 
       <div className="address-suggestions-card">
         <span className="address-suggestions-title">Sugerencias cercanas</span>

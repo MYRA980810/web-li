@@ -1,9 +1,9 @@
-'use client'
-
 import Link from 'next/link'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
 import { AccountStatusBanner } from '@/components/AccountStatusBanner'
+import { bannerStatus, formatMoney } from '@/lib/payoutAccountFormat'
+import type { SellerPayoutAccountDetails } from '@/lib/profileActions'
 
 const GearIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -17,36 +17,11 @@ const GearIcon = () => (
   </svg>
 )
 
-const NfcIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M4.5 5.5a4 4 0 0 1 0 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M7 3.5a7 7 0 0 1 0 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M9.5 1.5a10 10 0 0 1 0 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-)
-
-const PencilIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <path
-      d="M9.3 2.3l2.4 2.4L4.8 11.6 2 12l.4-2.8 6.9-6.9z"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-)
-
-const TrashIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <path d="M2 3.8h10M5 3.8V2.5h4v1.3M12 3.8l-.7 8.2H2.7L2 3.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M5.7 6.3v3.2M8.3 6.3v3.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-)
-
-const PlusIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+const BankIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M2.5 8L10 3.5 17.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3.5 8v7.5M7 8v7.5M13 8v7.5M16.5 8v7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M2.5 15.5h15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 )
 
@@ -62,97 +37,65 @@ const ShieldIcon = () => (
   </svg>
 )
 
-function CardDots() {
-  return (
-    <div className="payment-card-dots">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <span key={i} />
-      ))}
-    </div>
-  )
-}
-
-function PagosContent() {
+function PagosContent({ details }: { details: SellerPayoutAccountDetails | null }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
-        <span className="eyebrow">Mis Tarjetas</span>
+        <span className="eyebrow">Cuenta de Pagos</span>
         <h1 className="font-display font-extrabold text-[24px] leading-[1.15] tracking-[-0.02em] text-(--ink-0)">
           Gestionar Pagos
         </h1>
       </div>
 
-      <AccountStatusBanner status="active" />
+      {details ? (
+        <>
+          <AccountStatusBanner status={bannerStatus(details)} />
 
-      <div className="flex flex-col gap-4">
-        <Link href="/perfil/pagos/cuenta" className="payment-card featured">
-          <div className="payment-card-top">
-            <div className="flex flex-col">
-              <span className="payment-card-titular-label">Titular</span>
-              <span className="payment-card-titular-name">Alexandra Rivera</span>
-            </div>
-            <div className="payment-card-brand-chip">
-              <div className="payment-card-brand-mark" />
-            </div>
-          </div>
-
-          <div className="payment-card-number">
-            <CardDots />
-            <span className="payment-card-last4">8842</span>
-          </div>
-
-          <div className="payment-card-meta">
-            <div className="payment-card-meta-group">
-              <div>
-                <span className="payment-card-meta-label">Expira</span>
-                <span className="payment-card-meta-value">12/26</span>
+          {details.connected ? (
+            <Link href="/perfil/pagos/cuenta" className="account-bank-card">
+              <div className="account-bank-icon">
+                <BankIcon />
               </div>
-              <div>
-                <span className="payment-card-meta-label">CVC</span>
-                <span className="payment-card-meta-value">•••</span>
+              <div className="flex flex-col min-w-0">
+                <span className="account-bank-name truncate">{details.businessName ?? 'Cuenta conectada'}</span>
+                <span className="account-bank-mask truncate">
+                  {details.bankName
+                    ? `${details.bankName}${details.bankLast4 ? ` •••• ${details.bankLast4}` : ''}`
+                    : 'Ver detalle de la cuenta'}
+                </span>
+              </div>
+              <span className="text-(--ink-3) ml-auto">›</span>
+            </Link>
+          ) : (
+            <Link href="/perfil/pagos/cuenta" className="live-launch-btn w-full justify-center text-[14px]">
+              Conectar cuenta de pagos
+            </Link>
+          )}
+
+          {details.connected && (
+            <div className="account-balance-grid">
+              <div className="account-balance-card">
+                <span className="account-balance-label">Disponible</span>
+                <span className="account-balance-value">
+                  {details.balanceAvailable.length > 0
+                    ? details.balanceAvailable.map((b) => formatMoney(b.amount, b.currency)).join(' + ')
+                    : '—'}
+                </span>
+              </div>
+              <div className="account-balance-card">
+                <span className="account-balance-label">En camino</span>
+                <span className="account-balance-value">
+                  {details.balancePending.length > 0
+                    ? details.balancePending.map((b) => formatMoney(b.amount, b.currency)).join(' + ')
+                    : '—'}
+                </span>
               </div>
             </div>
-            <span className="payment-badge-principal">Principal</span>
-          </div>
-        </Link>
-
-        <div className="payment-card">
-          <div className="payment-card-top">
-            <div className="flex flex-col">
-              <span className="payment-card-titular-label">Titular</span>
-              <span className="payment-card-titular-name">Alexandra Rivera</span>
-            </div>
-            <div className="payment-card-nfc">
-              <NfcIcon />
-            </div>
-          </div>
-
-          <div className="payment-card-number">
-            <CardDots />
-            <span className="payment-card-last4">1092</span>
-          </div>
-
-          <div className="payment-card-meta">
-            <div>
-              <span className="payment-card-meta-label">Expira</span>
-              <span className="payment-card-meta-value">08/25</span>
-            </div>
-            <div className="payment-card-actions">
-              <button type="button" className="payment-icon-btn" disabled aria-label="Editar tarjeta">
-                <PencilIcon />
-              </button>
-              <button type="button" className="payment-icon-btn" disabled aria-label="Eliminar tarjeta">
-                <TrashIcon />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button type="button" className="payment-add-card-btn" disabled>
-        <PlusIcon />
-        Añadir Nueva Tarjeta
-      </button>
+          )}
+        </>
+      ) : (
+        <p className="text-[12px] text-(--ink-3)">No pudimos cargar la información de tu cuenta.</p>
+      )}
 
       <div className="payment-info-card">
         <div className="payment-info-icon">
@@ -170,7 +113,7 @@ function PagosContent() {
   )
 }
 
-export function MetodosPagoScreen() {
+export function MetodosPagoScreen({ details }: { details: SellerPayoutAccountDetails | null }) {
   return (
     <>
       <Ambient />
@@ -193,7 +136,7 @@ export function MetodosPagoScreen() {
         </div>
 
         <div className="px-5 pt-6 pb-2 reveal d1">
-          <PagosContent />
+          <PagosContent details={details} />
         </div>
 
         <SellerBottomNav active="perfil" />
@@ -222,7 +165,7 @@ export function MetodosPagoScreen() {
 
         <div className="flex items-start justify-center py-10 px-8">
           <div className="w-full max-w-sm">
-            <PagosContent />
+            <PagosContent details={details} />
           </div>
         </div>
       </div>

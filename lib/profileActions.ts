@@ -181,6 +181,62 @@ export async function createEmbeddedOnboardingSession(): Promise<CreateEmbeddedO
   return { ok: true, clientSecret: data.clientSecret as string }
 }
 
+export type BalanceAmount = {
+  amount: number
+  currency: string
+}
+
+export type SellerPayoutAccountDetails = {
+  connected: boolean
+  chargesEnabled: boolean
+  payoutsEnabled: boolean
+  detailsSubmitted: boolean
+  businessName: string | null
+  businessUrl: string | null
+  email: string | null
+  currentlyDue: string[]
+  pastDue: string[]
+  disabledReason: string | null
+  bankName: string | null
+  bankLast4: string | null
+  bankAccountStatus: string | null
+  balanceAvailable: BalanceAmount[]
+  balancePending: BalanceAmount[]
+}
+
+export async function getSellerPayoutAccountDetails(): Promise<SellerPayoutAccountDetails | null> {
+  const token = await requireToken()
+  const res = await fetchWithAuth(`${API}/api/seller/payout-account/details`, { headers: {} }, token)
+  if (!res.ok) return null
+  return res.json() as Promise<SellerPayoutAccountDetails>
+}
+
+export type PayoutItem = {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  method: string
+  arrivalDate: string
+}
+
+export type PayoutPage = {
+  items: PayoutItem[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export async function listSellerPayouts(cursor?: string, limit = 10): Promise<PayoutPage> {
+  const token = await requireToken()
+
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (cursor) params.set('cursor', cursor)
+
+  const res = await fetchWithAuth(`${API}/api/seller/payout-account/payouts?${params}`, { headers: {} }, token)
+  if (!res.ok) return { items: [], nextCursor: null, hasMore: false }
+  return res.json() as Promise<PayoutPage>
+}
+
 export async function getSellerAddresses(): Promise<SellerAddressView[]> {
   const token = await requireToken()
   try {

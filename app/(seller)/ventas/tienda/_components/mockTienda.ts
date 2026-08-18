@@ -154,6 +154,83 @@ export function formatMxn(amount: number): string {
   return `$${amount.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`
 }
 
+export type StoreReportPeriod = 'recientes' | StoreSalePeriod
+
+export const PERIOD_LABELS: Record<StoreReportPeriod, string> = {
+  recientes: 'Recientes',
+  hoy: 'Hoy',
+  semana: 'Semana',
+  mes: 'Mes',
+}
+
+const PERIOD_RANK: Record<StoreSalePeriod, number> = { hoy: 0, semana: 1, mes: 2 }
+
+export function filterSalesByPeriod(period: StoreReportPeriod): StoreSale[] {
+  if (period === 'recientes') return STORE_SALES
+  return STORE_SALES.filter((sale) => PERIOD_RANK[sale.period] <= PERIOD_RANK[period])
+}
+
+const STORE_FUNNEL_EXTRA: Record<StoreReportPeriod, { productViews: number; addedToCart: number; trendPercent: number }> = {
+  recientes: { productViews: 980, addedToCart: 126, trendPercent: 21 },
+  hoy: { productViews: 140, addedToCart: 18, trendPercent: 9 },
+  semana: { productViews: 410, addedToCart: 52, trendPercent: 14 },
+  mes: { productViews: 980, addedToCart: 126, trendPercent: 21 },
+}
+
+export type StoreTopProduct = {
+  rank: number
+  name: string
+  unitsSold: number
+  amount: number
+}
+
+export function buildStoreTopProducts(sales: StoreSale[]): StoreTopProduct[] {
+  const byProduct = new Map<string, { amount: number; unitsSold: number }>()
+
+  for (const sale of sales) {
+    const entry = byProduct.get(sale.product) ?? { amount: 0, unitsSold: 0 }
+    entry.amount += sale.amount
+    entry.unitsSold += 1
+    byProduct.set(sale.product, entry)
+  }
+
+  return Array.from(byProduct.entries())
+    .map(([name, v]) => ({ name, amount: v.amount, unitsSold: v.unitsSold }))
+    .sort((a, b) => b.amount - a.amount)
+    .map((product, i) => ({ ...product, rank: i + 1 }))
+}
+
+export type StoreFunnelStep = {
+  label: string
+  value: number
+  percent: number
+  colorVar: string
+}
+
+export function buildStoreFunnel(period: StoreReportPeriod, ordersCompleted: number): StoreFunnelStep[] {
+  const extra = STORE_FUNNEL_EXTRA[period]
+
+  return [
+    { label: 'Vieron el Producto', value: extra.productViews, percent: 100, colorVar: 'var(--cyan-400)' },
+    {
+      label: 'Agregaron al Carrito',
+      value: extra.addedToCart,
+      percent: Math.round((extra.addedToCart / extra.productViews) * 100),
+      colorVar: 'var(--violet-400)',
+    },
+    {
+      label: 'Completaron la Orden',
+      value: ordersCompleted,
+      percent: Math.round((ordersCompleted / extra.productViews) * 100),
+      colorVar: '#4ade80',
+    },
+  ]
+}
+
+export function getStoreTrendPercent(period: StoreReportPeriod): number {
+  return STORE_FUNNEL_EXTRA[period].trendPercent
+}
+
 export type SaleTimelineStepState = 'done' | 'current' | 'pending'
 
 export type SaleTimelineStep = {

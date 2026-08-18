@@ -4,10 +4,18 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import { STORE_SALES, STORE_STATS, STORE_STATUS_META, formatMxn, type StoreSale, type StoreSalePeriod } from './mockTienda'
+import {
+  PERIOD_LABELS,
+  STORE_STATS,
+  STORE_STATUS_META,
+  filterSalesByPeriod,
+  formatMxn,
+  type StoreReportPeriod,
+  type StoreSale,
+} from './mockTienda'
 import { OrderDetailOverlay } from './OrderDetailOverlay'
 
-type FilterTab = 'recientes' | StoreSalePeriod
+type FilterTab = StoreReportPeriod
 
 const FILTER_TABS: { id: FilterTab; label: string }[] = [
   { id: 'recientes', label: 'Recientes' },
@@ -16,7 +24,12 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
   { id: 'mes', label: 'Mes' },
 ]
 
-const PERIOD_RANK: Record<StoreSalePeriod, number> = { hoy: 0, semana: 1, mes: 2 }
+const DownloadIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M8 2v8M4.5 7L8 10.5 11.5 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M2.5 12.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+)
 
 const CoinIcon = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -91,12 +104,9 @@ function VentasContent() {
 
   const filteredSales = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return STORE_SALES.filter((sale) => {
-      const matchesSearch =
-        !q || sale.product.toLowerCase().includes(q) || sale.customer.toLowerCase().includes(q)
-      const matchesFilter = filter === 'recientes' || PERIOD_RANK[sale.period] <= PERIOD_RANK[filter]
-      return matchesSearch && matchesFilter
-    })
+    return filterSalesByPeriod(filter).filter(
+      (sale) => !q || sale.product.toLowerCase().includes(q) || sale.customer.toLowerCase().includes(q)
+    )
   }, [search, filter])
 
   return (
@@ -130,6 +140,11 @@ function VentasContent() {
           </button>
         ))}
       </div>
+
+      <Link href={`/ventas/tienda/reporte/${filter}`} className="live-launch-btn w-full justify-center text-[13px]">
+        <DownloadIcon />
+        Descargar Reporte de {PERIOD_LABELS[filter]}
+      </Link>
 
       <div className="flex flex-col gap-3">
         <span className="text-[10px] font-bold tracking-[0.16em] text-(--ink-3) uppercase px-0.5">

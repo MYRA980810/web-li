@@ -36,6 +36,8 @@ export function SellerBottomNav({ active }: Props) {
           ? (sessionStorage.getItem(LAST_STORE_PATH_KEY) ?? '/store')
           : '/store'
       router.push(saved)
+    } else if (tab === 'ventas') {
+      router.push('/ventas')
     } else if (tab === 'perfil') {
       router.push('/perfil')
     }
@@ -129,6 +131,7 @@ export function SellerBottomNav({ active }: Props) {
       </button>
 
       <button
+        onClick={() => navigateTo('ventas')}
         className={`bottom-nav-item${active === 'ventas' ? ' active' : ''}`}
         aria-label="Ventas"
       >

@@ -13,6 +13,26 @@ export type LiveOrder = {
 
 export type LiveShippingStatus = 'sent' | 'transit' | 'error'
 
+export type TopProduct = {
+  rank: number
+  name: string
+  unitsSold: number
+  amount: number
+}
+
+export type LiveReport = {
+  statusLabel: string
+  trendPercent: number
+  timeRangeLabel: string
+  uniqueViewers: number
+  productsViewed: number
+  checkoutInit: number
+  peakViewers: number
+  viewerGrowthLabel: string
+  viewerTimeline: number[]
+  topProducts: TopProduct[]
+}
+
 export type LiveSummary = {
   id: string
   title: string
@@ -28,6 +48,7 @@ export type LiveSummary = {
   shippingLabel: string
   deliveryEstimateLabel: string
   allOrders: LiveOrder[]
+  report: LiveReport
 }
 
 export const SHIPPING_STATUS_META: Record<LiveShippingStatus, { label: string; icon: string; pillClass: string }> = {
@@ -72,6 +93,24 @@ export const LIVES: LiveSummary[] = [
       { id: 'lv-7739', customer: 'Sofía M.', avatarInitial: 'S', orderCode: '#LV-7739', time: '11:52 AM', product: 'Mochila Urban Trek', amount: 1540, status: 'entregado' },
       { id: 'lv-7742', customer: 'Diego P.', avatarInitial: 'D', orderCode: '#LV-7742', time: '12:03 PM', product: 'Gorra Snapback Neon', amount: 320, status: 'en-camino' },
     ],
+    report: {
+      statusLabel: 'Live Finalizado',
+      trendPercent: 18,
+      timeRangeLabel: '20:00 - 21:22',
+      uniqueViewers: 96,
+      productsViewed: 70,
+      checkoutInit: 24,
+      peakViewers: 62,
+      viewerGrowthLabel: '+21 viewers en 5 min',
+      viewerTimeline: [8, 14, 22, 31, 40, 52, 58, 62, 55, 47, 36, 24, 15],
+      topProducts: [
+        { rank: 1, name: 'Reloj Crono Neon (Edición Limitada)', unitsSold: 6, amount: 4200 },
+        { rank: 2, name: 'Mochila Urban Trek', unitsSold: 4, amount: 3080 },
+        { rank: 3, name: 'Bolso Minimalista (Gris Espacial)', unitsSold: 3, amount: 1900 },
+        { rank: 4, name: 'Auriculares Bass Pro', unitsSold: 3, amount: 1780 },
+        { rank: 5, name: 'Gorra Snapback Neon', unitsSold: 5, amount: 1600 },
+      ],
+    },
   },
   {
     id: 'live-10jun',
@@ -92,6 +131,24 @@ export const LIVES: LiveSummary[] = [
       { id: 'lv-7614', customer: 'Andrés T.', avatarInitial: 'A', orderCode: '#LV-7614', time: '09:28 AM', product: 'Termo Acero Inox', amount: 310, status: 'en-camino' },
       { id: 'lv-7619', customer: 'Camila O.', avatarInitial: 'C', orderCode: '#LV-7619', time: '09:40 AM', product: 'Funda Celular Neón', amount: 390, status: 'pendiente' },
     ],
+    report: {
+      statusLabel: 'Live Finalizado',
+      trendPercent: -12,
+      timeRangeLabel: '18:00 - 18:45',
+      uniqueViewers: 42,
+      productsViewed: 27,
+      checkoutInit: 10,
+      peakViewers: 29,
+      viewerGrowthLabel: '+9 viewers en 5 min',
+      viewerTimeline: [5, 9, 14, 19, 24, 29, 26, 20, 14, 8],
+      topProducts: [
+        { rank: 1, name: 'Set de Brochas Pro', unitsSold: 2, amount: 640 },
+        { rank: 2, name: 'Funda Celular Neón', unitsSold: 2, amount: 520 },
+        { rank: 3, name: 'Termo Acero Inox', unitsSold: 1, amount: 310 },
+        { rank: 4, name: 'Labial Mate Duo', unitsSold: 2, amount: 380 },
+        { rank: 5, name: 'Espejo Compacto LED', unitsSold: 1, amount: 210 },
+      ],
+    },
   },
   {
     id: 'live-05jun',
@@ -112,6 +169,24 @@ export const LIVES: LiveSummary[] = [
       { id: 'lv-7505', customer: 'Iván S.', avatarInitial: 'I', orderCode: '#LV-7505', time: '08:25 PM', product: 'Chaqueta Windbreaker', amount: 2100, status: 'pendiente' },
       { id: 'lv-7511', customer: 'Renata G.', avatarInitial: 'R', orderCode: '#LV-7511', time: '08:41 PM', product: 'Lentes Sol Retro', amount: 1300, status: 'entregado' },
     ],
+    report: {
+      statusLabel: 'Live Finalizado',
+      trendPercent: 34,
+      timeRangeLabel: '20:00 - 22:05',
+      uniqueViewers: 114,
+      productsViewed: 82,
+      checkoutInit: 16,
+      peakViewers: 91,
+      viewerGrowthLabel: '+30 viewers en 5 min',
+      viewerTimeline: [10, 18, 27, 38, 50, 63, 74, 84, 91, 80, 68, 54, 38, 22],
+      topProducts: [
+        { rank: 1, name: 'Chaqueta Windbreaker', unitsSold: 4, amount: 3400 },
+        { rank: 2, name: 'Zapatillas Urban Flow', unitsSold: 3, amount: 2600 },
+        { rank: 3, name: 'Lentes Sol Retro', unitsSold: 2, amount: 1500 },
+        { rank: 4, name: 'Bufanda Tejida Premium', unitsSold: 3, amount: 1200 },
+        { rank: 5, name: 'Guantes Térmicos Pro', unitsSold: 2, amount: 780 },
+      ],
+    },
   },
 ]
 
@@ -196,4 +271,23 @@ export function buildOrderDetail(order: LiveOrder, live: LiveSummary): OrderDeta
     carrier: 'Livento Logistics',
     timeline,
   }
+}
+
+export type FunnelStep = {
+  label: string
+  value: number
+  percent: number
+  colorVar: string
+}
+
+export function buildConversionFunnel(live: LiveSummary): FunnelStep[] {
+  const { report } = live
+  const base = report.uniqueViewers
+
+  return [
+    { label: 'Viewers Únicos', value: base, percent: 100, colorVar: 'var(--cyan-400)' },
+    { label: 'Vieron Producto', value: report.productsViewed, percent: Math.round((report.productsViewed / base) * 100), colorVar: 'var(--violet-400)' },
+    { label: 'Checkout Iniciado', value: report.checkoutInit, percent: Math.round((report.checkoutInit / base) * 100), colorVar: 'var(--brand-400)' },
+    { label: 'Pedidos Pagados', value: live.orders, percent: Math.round((live.orders / base) * 100), colorVar: '#4ade80' },
+  ]
 }

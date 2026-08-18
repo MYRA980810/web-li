@@ -46,13 +46,6 @@ const TruckIcon = () => (
   </svg>
 )
 
-const ChartIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-    <path d="M4 18V9.5M11 18V4M18 18v-6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <path d="M2.5 18h17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-  </svg>
-)
-
 const CoinIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <rect x="2.5" y="6" width="15" height="10.5" rx="2.2" stroke="currentColor" strokeWidth="1.4" />
@@ -102,7 +95,7 @@ function IncomeRing({ percent }: { percent: number }) {
 
 function QuickAccessGrid() {
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="flex items-start justify-center gap-8">
       <Link href="/ventas/lives" className="flex flex-col items-center gap-2">
         <span className="quick-access-icon accent">
           <VideoIcon />
@@ -111,25 +104,18 @@ function QuickAccessGrid() {
       </Link>
 
       <Link href="/ventas/tienda" className="flex flex-col items-center gap-2">
-        <span className="quick-access-icon accent">
+        <span className="quick-access-icon accent-violet">
           <BagIcon />
         </span>
         <span className="text-[11px] font-semibold text-(--ink-1)">Tienda</span>
       </Link>
 
-      <div className="flex flex-col items-center gap-2">
-        <button type="button" className="quick-access-icon" disabled aria-label="Envíos (próximamente)">
+      <Link href="/ventas/envios" className="flex flex-col items-center gap-2">
+        <span className="quick-access-icon accent-cyan">
           <TruckIcon />
-        </button>
-        <span className="text-[11px] font-semibold text-(--ink-3)">Envíos</span>
-      </div>
-
-      <div className="flex flex-col items-center gap-2">
-        <button type="button" className="quick-access-icon" disabled aria-label="Reportes (próximamente)">
-          <ChartIcon />
-        </button>
-        <span className="text-[11px] font-semibold text-(--ink-3)">Reportes</span>
-      </div>
+        </span>
+        <span className="text-[11px] font-semibold text-(--ink-1)">Envíos</span>
+      </Link>
     </div>
   )
 }
@@ -178,7 +164,7 @@ function IncomeCard() {
 function StatCardsRow() {
   return (
     <div className="grid grid-cols-2 gap-3">
-      <div className="ops-stat-card">
+      <Link href="/ventas/envios" className="ops-stat-card">
         <div className="flex items-start justify-between">
           <span className="ops-stat-icon" style={{ background: 'rgba(56,189,248,0.14)', color: 'var(--cyan-400)' }}>
             <TruckIcon />
@@ -193,7 +179,7 @@ function StatCardsRow() {
         <span className="ops-alert-pill">
           <AlertIcon /> {ENVIOS_ALERTAS} ALERTA{ENVIOS_ALERTAS === 1 ? '' : 'S'}
         </span>
-      </div>
+      </Link>
 
       <Link href="/ventas/lives" className="ops-stat-card">
         <div className="flex items-start justify-between">

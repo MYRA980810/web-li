@@ -4,8 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
-import { LIVES, MONTH_STATS, ORDER_STATUS_META, SHIPPING_STATUS_META, formatMxn, type LiveSummary } from './mockLives'
-import { LiveOrdersOverlay } from './LiveOrdersOverlay'
+import { LIVES, MONTH_STATS, SHIPPING_STATUS_META, formatMxn, type LiveSummary } from './mockLives'
 
 const PERIOD_LABEL = 'JUNIO 2026'
 
@@ -20,15 +19,14 @@ function LiveCard({
   live,
   expanded,
   onToggle,
-  onViewAllOrders,
 }: {
   live: LiveSummary
   expanded: boolean
   onToggle: () => void
-  onViewAllOrders: () => void
 }) {
   const shipping = SHIPPING_STATUS_META[live.shippingStatus]
-  const recentOrders = live.allOrders.slice(0, 2)
+  const topProduct = live.report.topProducts[0]
+  const trendUp = live.report.trendPercent >= 0
 
   return (
     <div className={`live-summary-card${expanded ? ' expanded' : ''}`}>
@@ -73,34 +71,32 @@ function LiveCard({
 
           <div className="flex flex-col gap-2.5">
             <span className="text-[10px] font-bold tracking-[0.16em] text-(--ink-3) uppercase px-0.5">
-              Pedidos Recientes
+              Resumen del Reporte
             </span>
-            <div className="flex flex-col gap-2.5">
-              {recentOrders.map((order) => {
-                const meta = ORDER_STATUS_META[order.status]
-                return (
-                  <div key={order.id} className="account-payment-row">
-                    <div className="flex flex-col">
-                      <span className="account-payment-date">{order.customer}</span>
-                      <span className="account-payment-method">{order.product}</span>
-                    </div>
-                    <div className="account-payment-right">
-                      <span className={`account-status-pill ${meta.pillClass}`}>{meta.label}</span>
-                      <span className="account-payment-amount">{formatMxn(order.amount)}</span>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="account-balance-card gap-3">
+              <div className="flex items-center justify-between">
+                <span className="account-balance-label">Ventas Totales</span>
+                <span className={`text-[11px] font-bold ${trendUp ? 'text-green-400' : 'text-red-400'}`}>
+                  {trendUp ? '↗' : '↘'} {trendUp ? '+' : ''}
+                  {live.report.trendPercent}% vs. live anterior
+                </span>
+              </div>
+              <span className="account-balance-value text-[22px]">{formatMxn(live.amount)}</span>
+              <div className="flex items-center justify-between text-[11px] text-(--ink-3) pt-1 border-t border-(--line)">
+                <span>
+                  🔥 Top: <span className="text-(--ink-1) font-semibold">{topProduct?.name}</span>
+                </span>
+                <span className="shrink-0">👁 Pico {live.report.peakViewers}</span>
+              </div>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onViewAllOrders}
+          <Link
+            href={`/ventas/lives/${live.id}`}
             className="text-[12px] font-bold text-brand-400 hover:text-brand-300 transition-colors self-center"
           >
-            Ver Todos los Pedidos →
-          </button>
+            Ver Reporte →
+          </Link>
         </div>
       )}
     </div>
@@ -109,7 +105,6 @@ function LiveCard({
 
 function VentasContent() {
   const [expandedId, setExpandedId] = useState<string>(LIVES[0]!.id)
-  const [overlayLive, setOverlayLive] = useState<LiveSummary | null>(null)
 
   return (
     <div className="flex flex-col gap-6">
@@ -148,13 +143,10 @@ function VentasContent() {
               live={live}
               expanded={expandedId === live.id}
               onToggle={() => setExpandedId((prev) => (prev === live.id ? prev : live.id))}
-              onViewAllOrders={() => setOverlayLive(live)}
             />
           ))}
         </div>
       </div>
-
-      {overlayLive && <LiveOrdersOverlay live={overlayLive} onClose={() => setOverlayLive(null)} />}
     </div>
   )
 }

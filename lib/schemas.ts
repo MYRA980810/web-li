@@ -46,11 +46,32 @@ export const resetPasswordSchema = z.object({
   path: ['confirmPassword'],
 })
 
-export type RegisterInput        = z.infer<typeof registerSchema>
-export type LoginInput           = z.infer<typeof loginSchema>
-export type ForgotPasswordInput  = z.infer<typeof forgotPasswordSchema>
-export type VerifyResetCodeInput = z.infer<typeof verifyResetCodeSchema>
-export type ResetPasswordInput   = z.infer<typeof resetPasswordSchema>
+export const verifyCurrentPasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Ingresá tu contraseña actual'),
+})
+
+export const verifyChangePasswordOtpSchema = z.object({
+  pendingToken: z.string().min(1),
+  code:         z.string().length(6, 'El código debe tener 6 dígitos'),
+})
+
+export const changePasswordSchema = z.object({
+  changePasswordToken: z.string().min(1),
+  newPassword:         z.string().min(8, 'Mínimo 8 caracteres').max(100),
+  confirmPassword:     z.string().min(8).max(100),
+}).refine(d => d.newPassword === d.confirmPassword, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmPassword'],
+})
+
+export type RegisterInput               = z.infer<typeof registerSchema>
+export type LoginInput                  = z.infer<typeof loginSchema>
+export type ForgotPasswordInput         = z.infer<typeof forgotPasswordSchema>
+export type VerifyResetCodeInput        = z.infer<typeof verifyResetCodeSchema>
+export type ResetPasswordInput          = z.infer<typeof resetPasswordSchema>
+export type VerifyCurrentPasswordInput  = z.infer<typeof verifyCurrentPasswordSchema>
+export type VerifyChangePasswordOtpInput = z.infer<typeof verifyChangePasswordOtpSchema>
+export type ChangePasswordInput         = z.infer<typeof changePasswordSchema>
 
 export const createStoreSchema = z.object({
   name:        z.string().min(1, 'El nombre es requerido').max(255),

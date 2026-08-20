@@ -24,6 +24,12 @@ const GearIcon = () => (
   </svg>
 )
 
+const ChevronRight = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const ShieldIcon = () => (
   <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path
@@ -41,22 +47,36 @@ function SettingItem({
   label,
   description,
   locked,
+  href,
 }: {
   icon: string
   label: string
   description: string
   locked: boolean
+  href?: string
 }) {
-  return (
-    <div className={`profile-setting-item ${locked ? 'locked' : 'active'}`}>
+  const inner = (
+    <>
       <div className="profile-setting-icon text-[18px]">{icon}</div>
       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
         <span className="text-[13px] font-bold text-(--ink-0) leading-snug">{label}</span>
         <span className="text-[11px] text-(--ink-3) leading-relaxed">{description}</span>
       </div>
-      <span className="text-(--ink-3) flex-shrink-0">{locked ? <LockIcon /> : null}</span>
-    </div>
+      <span className="text-(--ink-3) flex-shrink-0">
+        {locked ? <LockIcon /> : href ? <ChevronRight /> : null}
+      </span>
+    </>
   )
+
+  if (href && !locked) {
+    return (
+      <Link href={href} className="profile-setting-item active">
+        {inner}
+      </Link>
+    )
+  }
+
+  return <div className={`profile-setting-item ${locked ? 'locked' : 'active'}`}>{inner}</div>
 }
 
 function ToggleRow({
@@ -117,7 +137,13 @@ function SeguridadContent() {
         <p className="text-[10px] font-bold tracking-[0.18em] text-(--ink-3) uppercase px-0.5">
           Acceso y Seguridad
         </p>
-        <SettingItem icon="🔑" label="Cambiar Contraseña" description="Último cambio hace 3 meses" locked />
+        <SettingItem
+          icon="🔑"
+          label="Cambiar Contraseña"
+          description="Actualizá tu contraseña de acceso"
+          locked={false}
+          href="/perfil/seguridad/cambiar-contrasena"
+        />
         <ToggleRow
           icon="📱"
           label="Autenticación en dos pasos"

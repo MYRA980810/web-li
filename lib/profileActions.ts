@@ -1,7 +1,15 @@
 'use server'
 
-import { addSellerAddressSchema, type AddSellerAddressInput, updateSellerAddressSchema, type UpdateSellerAddressInput } from './schemas'
+import {
+  addSellerAddressSchema, type AddSellerAddressInput,
+  updateSellerAddressSchema, type UpdateSellerAddressInput,
+  verifyCurrentPasswordSchema,
+  verifyChangePasswordOtpSchema,
+  changePasswordSchema, type ChangePasswordInput,
+} from './schemas'
 import { API, parseProblemDetail, requireToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import { getRefreshToken } from './session'
+import type { VerificationChannel } from './actions'
 import type { SellerAddressView } from './types'
 
 export type UserProfile = {
@@ -235,6 +243,123 @@ export async function listSellerPayouts(cursor?: string, limit = 10): Promise<Pa
   const res = await fetchWithAuth(`${API}/api/seller/payout-account/payouts?${params}`, { headers: {} }, token)
   if (!res.ok) return { items: [], nextCursor: null, hasMore: false }
   return res.json() as Promise<PayoutPage>
+}
+
+export type VerifyCurrentPasswordResult =
+  | { ok: true; pendingToken: string; channel: VerificationChannel }
+  | { ok: false; error: string }
+
+// Step 1 of the authenticated change-password flow: confirms the account's
+// current password and triggers an OTP to the user's registered contact.
+export async function verifyCurrentPassword(currentPassword: string): Promise<VerifyCurrentPasswordResult> {
+  const parsed = verifyCurrentPasswordSchema.safeParse({ currentPassword })
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+    return { ok: false, error: first ?? 'Ingresá tu contraseña actual' }
+  }
+
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/auth/me/password/verify-current`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: parsed.data.currentPassword }),
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = await res.json()
+  return { ok: true, pendingToken: data.pendingToken, channel: data.channel }
+}
+
+export type VerifyChangePasswordOtpResult =
+  | { ok: true; changePasswordToken: string }
+  | { ok: false; error: string }
+
+// Step 2: verifies the OTP sent by verifyCurrentPassword and issues a
+// short-lived token authorizing the actual password change.
+export async function verifyChangePasswordOtp(pendingToken: string, code: string): Promise<VerifyChangePasswordOtpResult> {
+  const parsed = verifyChangePasswordOtpSchema.safeParse({ pendingToken, code })
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
+    return { ok: false, error: first ?? 'Código inválido' }
+  }
+
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/auth/me/password/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pendingToken: parsed.data.pendingToken, code: parsed.data.code }),
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = await res.json()
+  return { ok: true, changePasswordToken: data.changePasswordToken }
+}
+
+export type ChangePasswordResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+// Step 3: applies the new password. The backend revokes every other active
+// session's refresh token, so the current refresh_token cookie is forwarded
+// to let it keep this session alive.
+export async function changePassword(payload: ChangePasswordInput): Promise<ChangePasswordResult> {
+  const parsed = changePasswordSchema.safeParse(payload)
+  if (!parsed.success) {
+    const flat  = parsed.error.flatten()
+    const first = Object.values(flat.fieldErrors).flat()[0] ?? flat.formErrors[0]
+    return { ok: false, error: first ?? 'Revisá los campos' }
+  }
+
+  const token = await requireToken()
+  const refreshToken = await getRefreshToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/auth/me/password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(refreshToken ? { Cookie: `refresh_token=${refreshToken}` } : {}),
+      },
+      body: JSON.stringify({
+        changePasswordToken: parsed.data.changePasswordToken,
+        newPassword:         parsed.data.newPassword,
+        confirmPassword:     parsed.data.confirmPassword,
+      }),
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  return { ok: true }
 }
 
 export async function getSellerAddresses(): Promise<SellerAddressView[]> {

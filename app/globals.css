@@ -360,6 +360,29 @@ input  { font-family: inherit; }
 .buyer-notify-btn:hover { background: rgba(255,31,135,0.12); border-color: rgba(255,31,135,0.55); }
 .buyer-bottom-nav { background: #1a0c22; backdrop-filter: none; -webkit-backdrop-filter: none; border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl); }
 
+/* ===== Buyer Live Feed ===== */
+.live-feed-stage { position: fixed; inset: 0; z-index: 40; overflow: hidden; }
+.live-feed-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,2,12,0.35) 0%, transparent 18%, transparent 52%, rgba(5,2,12,0.75) 78%, rgba(5,2,12,0.97) 100%); }
+.live-feed-icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(20,15,22,0.5); backdrop-filter: blur(10px); border: none; color: #fff; font-size: 16px; cursor: pointer; }
+.live-feed-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-pill); background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.10); backdrop-filter: blur(10px); font-size: 12px; font-weight: 600; color: #fff; }
+.live-feed-action-btn { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(20,15,22,0.45); backdrop-filter: blur(8px); border: none; color: #fff; cursor: pointer; }
+.live-feed-cart-btn { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--grad-pink); box-shadow: var(--glow-pink-sm); border: none; color: #fff; cursor: pointer; }
+.live-feed-avatar { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--brand-400); box-shadow: 0 0 14px rgba(255,31,135,0.45); flex-shrink: 0; }
+.live-feed-pinned-card { display: flex; align-items: center; gap: 12px; border-radius: var(--r-xl); padding: 12px 14px; background: linear-gradient(135deg, rgba(124,63,107,0.55), rgba(20,10,25,0.90)); border: 1px solid rgba(255,31,135,0.25); backdrop-filter: blur(16px); }
+.live-feed-pinned-thumb { width: 48px; height: 48px; border-radius: var(--r-md); flex-shrink: 0; }
+.live-feed-pinned-badge { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; padding: 2px 8px; border-radius: var(--r-pill); background: rgba(45,212,191,0.15); border: 1px solid rgba(45,212,191,0.35); color: var(--teal-400); width: fit-content; }
+
+/* ===== Buyer Live Explorer ===== */
+.buyer-search-bar.active { border-color: var(--brand-400); box-shadow: 0 0 0 1px rgba(255,31,135,0.3), 0 0 20px -6px rgba(255,31,135,0.45); }
+.buyer-live-count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid rgba(255,31,135,0.35); background: rgba(255,31,135,0.08); color: var(--brand-400); font-size: 12px; font-weight: 700; }
+.live-grid-card { position: relative; width: 100%; padding-top: 133%; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line); cursor: pointer; transition: transform .2s, border-color .2s; }
+.live-grid-card:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+.live-grid-card-media { position: absolute; inset: 0; }
+.live-grid-card-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgba(5,2,12,0.55) 65%, rgba(5,2,12,0.95) 100%); }
+.live-grid-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.buyer-scheduled-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r-lg); border: 1px solid var(--line); background: rgba(255,255,255,0.02); }
+.buyer-scheduled-bell { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid var(--line); color: var(--ink-2); font-size: 16px; flex-shrink: 0; cursor: pointer; }
+
 /* ===== Store Welcome ===== */
 .store-welcome-hero { position: relative; border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--line); min-height: 200px; display: flex; align-items: center; justify-content: center; }
 .store-welcome-hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 25%, rgba(255,31,135,0.30) 0%, transparent 55%), radial-gradient(ellipse at 85% 80%, rgba(139,92,246,0.22) 0%, transparent 50%), radial-gradient(ellipse at 15% 75%, rgba(34,211,238,0.10) 0%, transparent 45%), linear-gradient(135deg, #0f0a18 0%, #080514 100%); }

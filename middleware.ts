@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
 
 const SELLER_PREFIXES = ['/home', '/store', '/live', '/perfil', '/seller/payout']
+const BUYER_PREFIXES = ['/buyer']
+
+const ROLE_PREFIXES: { prefixes: string[]; role: string }[] = [
+  { prefixes: SELLER_PREFIXES, role: 'SELLER' },
+  { prefixes: BUYER_PREFIXES, role: 'BUYER' },
+]
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -88,11 +94,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
-  const isSellerRoute = SELLER_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
+  const matchedRole = ROLE_PREFIXES.find(({ prefixes }) =>
+    prefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/')),
   )
 
-  if (isSellerRoute) {
+  if (matchedRole) {
     if (!hasSession) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
@@ -150,7 +156,7 @@ export async function middleware(req: NextRequest) {
     }
 
     const role = getJwtRole(sessionToken!)
-    if (role !== 'SELLER') {
+    if (role !== matchedRole.role) {
       return NextResponse.redirect(new URL('/', req.url))
     }
   }
@@ -173,5 +179,7 @@ export const config = {
     '/perfil',
     '/perfil/:path+',
     '/seller/payout/:path+',
+    '/buyer',
+    '/buyer/:path+',
   ],
 }

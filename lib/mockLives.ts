@@ -19,9 +19,12 @@ export type ScheduledLiveItem = {
   id: string
   store: string
   category: LiveCategoryId
+  categoryLabel: string
   color: string
+  bg: string
   day: string
   time: string
+  minutesUntilStart: number
 }
 
 export const LIVE_CATEGORIES: { id: 'todos' | LiveCategoryId; label: string; icon: string }[] = [
@@ -47,11 +50,19 @@ export const LIVE_ITEMS: LiveItem[] = [
 ]
 
 export const SCHEDULED_ITEMS: ScheduledLiveItem[] = [
-  { id: 'boutique-mar-sched', store: 'Boutique Mar', category: 'ropa', color: 'var(--brand-400)', day: 'Sáb', time: '12:00 PM' },
-  { id: 'mar-azul', store: 'Mar Azul Accesorios', category: 'accesorios', color: '#38bdf8', day: 'Dom', time: '5:00 PM' },
-  { id: 'glow-sched', store: 'Glow Cosmética', category: 'cosmetica', color: 'var(--teal-400)', day: 'Lun', time: '7:00 PM' },
+  { id: 'boutique-mar-sched', store: 'Boutique Mar', category: 'ropa', categoryLabel: 'Ropa', color: 'var(--brand-400)', bg: 'radial-gradient(ellipse at 50% 30%, #6b4a2a 0%, #2a1a10 60%, #120a08 100%)', day: 'Sáb', time: '12:00 PM', minutesUntilStart: 25 },
+  { id: 'mar-azul', store: 'Mar Azul Accesorios', category: 'accesorios', categoryLabel: 'Accesorios', color: '#38bdf8', bg: 'radial-gradient(ellipse at 50% 30%, #1a2a3a 0%, #0a1218 100%)', day: 'Dom', time: '5:00 PM', minutesUntilStart: 120 },
+  { id: 'glow-sched', store: 'Glow Cosmética', category: 'cosmetica', categoryLabel: 'Cosmética', color: 'var(--teal-400)', bg: 'radial-gradient(ellipse at 50% 30%, #4a3420 0%, #1a1208 100%)', day: 'Lun', time: '7:00 PM', minutesUntilStart: 4320 },
 ]
 
 export function getLiveById(id: string): LiveItem {
   return LIVE_ITEMS.find((item) => item.id === id) ?? LIVE_ITEMS[0]
+}
+
+export function formatLiveCountdown(minutesUntilStart: number): string {
+  if (minutesUntilStart < 60) return `En ${minutesUntilStart} min`
+  const hours = Math.round(minutesUntilStart / 60)
+  if (hours < 24) return `En ${hours} h`
+  const days = Math.round(minutesUntilStart / 1440)
+  return days === 1 ? 'Mañana' : `En ${days} días`
 }

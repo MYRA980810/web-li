@@ -109,6 +109,7 @@ export function ScheduleLiveForm({ storeId }: Props) {
 
   const canSubmit =
     title.trim().length > 0 &&
+    thumbnailPreview !== null &&
     selectedDay !== null &&
     selectedHour !== null &&
     selectedMinute !== null &&
@@ -120,17 +121,20 @@ export function ScheduleLiveForm({ storeId }: Props) {
     setIsLoading(true)
     setError(null)
 
-    let thumbnailUrl: string | undefined
     const file = fileRef.current?.files?.[0]
-    if (file) {
-      const upload = await uploadLiveThumbnail(file)
-      if (!upload.ok) {
-        setError(upload.error)
-        setIsLoading(false)
-        return
-      }
-      thumbnailUrl = upload.url
+    if (!file) {
+      setError('La portada del live es requerida')
+      setIsLoading(false)
+      return
     }
+
+    const upload = await uploadLiveThumbnail(file)
+    if (!upload.ok) {
+      setError(upload.error)
+      setIsLoading(false)
+      return
+    }
+    const thumbnailUrl = upload.url
 
     const scheduledAt = new Date(
       monthCursor.getFullYear(),

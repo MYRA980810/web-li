@@ -707,6 +707,7 @@ input  { font-family: inherit; }
 .reveal.d3 { animation-delay: .25s; }
 .reveal.d4 { animation-delay: .35s; }
 .reveal.d5 { animation-delay: .45s; }
+.reveal.d6 { animation-delay: .55s; }
 .screen-enter { animation: screen-in .6s cubic-bezier(.2,.7,.2,1) both; }
 
 /* ===== Scrollbar ===== */

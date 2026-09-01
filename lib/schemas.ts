@@ -134,7 +134,7 @@ export const createLiveSchema = z.object({
   context:                z.enum(['STORE', 'SELLER_PROFILE']),
   storeId:                z.string().uuid().optional(),
   scheduledAt:            z.string().datetime().optional(),
-  thumbnailUrl:           z.string().url().optional(),
+  thumbnailUrl:           z.string().url('La portada del live es requerida'),
 })
 
 export type CreateLiveInput = z.infer<typeof createLiveSchema>

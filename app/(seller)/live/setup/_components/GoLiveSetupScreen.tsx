@@ -1,13 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
 import { defaultVariant } from '@/components/StockProductPicker'
 import { hotProductDraftToFormData, type HotProductDraft } from '@/components/HotProductFields'
-import { createLive, addCatalogLiveProduct, addHotLiveProduct } from '@/lib/liveActions'
+import { createLive, addCatalogLiveProduct, addHotLiveProduct, uploadLiveThumbnail } from '@/lib/liveActions'
 import { StockPickerDrawer } from './StockPickerDrawer'
 import { HotProductDrawer } from './HotProductDrawer'
 import type { ProductView, Category } from '@/lib/types'
@@ -45,7 +45,10 @@ type Props = {
 export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
   const router = useRouter()
 
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const [title, setTitle]         = useState('')
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [deployIdx, setDeployIdx] = useState(2)
   const [beautyAI, setBeautyAI]   = useState(true)
   const [isLoading, setIsLoading] = useState(false)
@@ -85,15 +88,47 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
     setHotDrafts((prev) => prev.filter((entry) => entry.id !== id))
   }
 
+  function handleThumbnailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setThumbnailPreview((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
+  }
+
+  function handleRemoveThumbnail() {
+    setThumbnailPreview((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return null
+    })
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   async function handleStart() {
     setIsLoading(true)
     setError(null)
+
+    const file = fileRef.current?.files?.[0]
+    if (!file) {
+      setError('La portada del live es requerida')
+      setIsLoading(false)
+      return
+    }
+
+    const upload = await uploadLiveThumbnail(file)
+    if (!upload.ok) {
+      setError(upload.error)
+      setIsLoading(false)
+      return
+    }
 
     const result = await createLive({
       title:                  title.trim(),
       displayDurationSeconds: deploySeconds,
       context:                storeId ? 'STORE' : 'SELLER_PROFILE',
       storeId:                storeId ?? undefined,
+      thumbnailUrl:           upload.url,
     })
 
     if (!result.ok) {
@@ -158,8 +193,52 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
         />
       </div>
 
-      {/* Deploy time slider */}
+      {/* Portada del Live */}
       <div className="px-5 mt-7 reveal d3">
+        <label className="store-form-label">Portada del Live</label>
+        {thumbnailPreview ? (
+          <div className="img-picker-thumb-wrap">
+            <Image
+              src={thumbnailPreview}
+              alt="Portada del live"
+              width={96}
+              height={96}
+              className="img-picker-thumb"
+              unoptimized={thumbnailPreview.startsWith('blob:')}
+            />
+            <button
+              type="button"
+              className="img-picker-remove-btn"
+              onClick={handleRemoveThumbnail}
+              disabled={isLoading}
+              aria-label="Eliminar imagen"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="img-picker-empty-zone"
+            onClick={() => fileRef.current?.click()}
+            disabled={isLoading}
+          >
+            <span className="text-[40px] opacity-40">📷</span>
+            <span className="text-[12px] text-(--ink-3) font-medium">Subir Portada</span>
+            <span className="text-[10px] text-(--ink-4) mt-1">JPG, PNG o WebP · Máx. 5 MB</span>
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleThumbnailChange}
+        />
+      </div>
+
+      {/* Deploy time slider */}
+      <div className="px-5 mt-7 reveal d4">
         <div className="flex items-center justify-between mb-4">
           <span className="store-form-label" style={{ marginBottom: 0 }}>
             Tiempo de Despliegue
@@ -188,7 +267,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
       </div>
 
       {/* Product inventory */}
-      <div className="px-5 mt-7 reveal d4">
+      <div className="px-5 mt-7 reveal d5">
         <span className="store-form-label">Inventario de Productos</span>
         <div className="live-inventory-grid">
           <button
@@ -328,7 +407,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
       </div>
 
       {/* Beauty AI toggle */}
-      <div className="px-5 mt-5 reveal d5">
+      <div className="px-5 mt-5 reveal d6">
         <div className="live-toggle-row">
           <div className="flex items-center gap-3">
             <span className="live-toggle-icon">✨</span>
@@ -379,7 +458,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
           <button
             className="live-start-btn"
             onClick={handleStart}
-            disabled={!title.trim() || isLoading}
+            disabled={!title.trim() || !thumbnailPreview || isLoading}
           >
             {isLoading ? 'Creando sesión...' : '🚀 Iniciar Live Ahora'}
           </button>
@@ -406,7 +485,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
             <button
               className="live-start-btn"
               onClick={handleStart}
-              disabled={!title.trim() || isLoading}
+              disabled={!title.trim() || !thumbnailPreview || isLoading}
             >
               {isLoading ? 'Creando sesión...' : '🚀 Iniciar Live Ahora'}
             </button>

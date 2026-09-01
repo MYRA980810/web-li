@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 import { BuyerBottomNav } from '@/components/BuyerBottomNav'
+import { useLivesFeedChannel } from '@/hooks/useLivesFeedChannel'
 import { formatLiveCountdown } from '@/lib/mockLives'
 import {
   getActiveLives,
@@ -217,6 +218,37 @@ export function LiveExplorerScreen({ initialActive, initialUpcoming, activeError
     upcomingLoadingRef.current = false
     setUpcomingLoading(false)
   }, [upcomingHasMore, upcomingPage])
+
+  // Merges a fresh page-0 fetch into activeItems without disturbing items
+  // already loaded further down via pagination (no dupes, no reordering).
+  const mergeFreshActive = useCallback((fresh: LiveFeedCardResponse[]) => {
+    setActiveItems((prev) => {
+      const existingIds = new Set(prev.map((i) => i.id))
+      const toPrepend = fresh.filter((i) => !existingIds.has(i.id))
+      return toPrepend.length === 0 ? prev : [...toPrepend, ...prev]
+    })
+  }, [])
+
+  const refreshActiveFeed = useCallback(async () => {
+    const result = await getActiveLives(0)
+    if (result.ok) mergeFreshActive(result.page.content)
+  }, [mergeFreshActive])
+
+  // Real-time explorer updates — global "lives-feed" RTM broadcast channel,
+  // replaces polling. The channel payload is minimal (type + liveId only),
+  // so on live-started we refetch page 0 rather than synthesizing a card.
+  useLivesFeedChannel({
+    onLiveStarted: (liveId) => {
+      void refreshActiveFeed()
+      setUpcomingItems((prev) => prev.filter((i) => i.id !== liveId))
+    },
+    onLiveEnded: (liveId) => {
+      setActiveItems((prev) => prev.filter((i) => i.id !== liveId))
+    },
+    onResync: () => {
+      void refreshActiveFeed()
+    },
+  })
 
   const isVivo = viewMode === 'vivo'
   const loadMore = isVivo ? loadMoreActive : loadMoreUpcoming

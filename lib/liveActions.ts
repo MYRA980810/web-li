@@ -400,6 +400,44 @@ export async function getChatToken(liveId: string): Promise<GetChatTokenResult> 
   return { ok: true, data: { ...data, rtmUid } }
 }
 
+// ─── getLiveFeedToken ─────────────────────────────────────────────────────────
+
+export type FeedTokenData = {
+  token: string
+  channelName: string
+  appId: string
+  rtmUid: string
+}
+
+export type GetLiveFeedTokenResult =
+  | { ok: true;  data: FeedTokenData }
+  | { ok: false; error: string }
+
+/** RTM login token for the global "lives-feed" broadcast channel — unlike
+ * getChatToken, not tied to a specific live, any authenticated user browsing
+ * the explorer can request one. */
+export async function getLiveFeedToken(): Promise<GetLiveFeedTokenResult> {
+  const token  = await requireToken()
+  const rtmUid = extractSubFromJwt(token)
+  if (!rtmUid) return { ok: false, error: 'No se pudo obtener la identidad del usuario' }
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/rtm/feed-token`, { method: 'GET' }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const data = (await res.json()) as { token: string; channelName: string; appId: string }
+  return { ok: true, data: { ...data, rtmUid } }
+}
+
 // ─── getChatHistory ───────────────────────────────────────────────────────────
 
 export type ChatHistoryMessage = {

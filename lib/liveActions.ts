@@ -536,3 +536,120 @@ export async function startLive(liveId: string, rtcUid: string): Promise<StartLi
   const broadcast = await res.json()
   return { ok: true, broadcast: broadcast as LiveBroadcastResponse }
 }
+
+
+// ─── getActiveLives / getUpcomingLives ─────────────────────────────────────────
+
+export type PageResponse<T> = {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+  first: boolean
+  last: boolean
+}
+
+export type LiveFeedCardResponse = {
+  id: string
+  sellerId: string
+  storeId: string | null
+  title: string
+  sellerName: string | null
+  thumbnailUrl: string | null
+  currentViewers: number
+  startedAt: string
+}
+
+export type LiveUpcomingCardResponse = {
+  id: string
+  sellerId: string
+  storeId: string | null
+  title: string
+  sellerName: string | null
+  thumbnailUrl: string | null
+  scheduledAt: string
+}
+
+export type GetActiveLivesResult =
+  | { ok: true;  page: PageResponse<LiveFeedCardResponse> }
+  | { ok: false; error: string }
+
+/** Buyer-facing feed of lives currently in progress. */
+export async function getActiveLives(page = 0, size = 20): Promise<GetActiveLivesResult> {
+  const token = await requireToken()
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/active?${params}`, { method: 'GET' }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const page_ = await res.json()
+  return { ok: true, page: page_ as PageResponse<LiveFeedCardResponse> }
+}
+
+export type GetUpcomingLivesResult =
+  | { ok: true;  page: PageResponse<LiveUpcomingCardResponse> }
+  | { ok: false; error: string }
+
+/** Buyer-facing feed of scheduled lives. `scheduledAt` is a raw instant — the
+ * caller computes the countdown, the backend does not pre-compute one. */
+export async function getUpcomingLives(page = 0, size = 20): Promise<GetUpcomingLivesResult> {
+  const token = await requireToken()
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/upcoming?${params}`, { method: 'GET' }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const page_ = await res.json()
+  return { ok: true, page: page_ as PageResponse<LiveUpcomingCardResponse> }
+}
+
+// ─── sendLiveHeartbeat ────────────────────────────────────────────────────────
+
+export type SendLiveHeartbeatResult =
+  | { ok: true;  viewerCount: number }
+  | { ok: false; error: string }
+
+/** The only public (unauthenticated) live endpoint — registers `viewerId` as
+ * watching so the backend counts it in the live's viewer total. */
+export async function sendLiveHeartbeat(liveId: string, viewerId: string): Promise<SendLiveHeartbeatResult> {
+  let res: Response
+  try {
+    res = await fetch(`${API}/api/lives/${liveId}/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ viewerId }),
+    })
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const { viewerCount } = (await res.json()) as { viewerCount: number }
+  return { ok: true, viewerCount }
+}

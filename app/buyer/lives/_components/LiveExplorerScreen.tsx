@@ -1,16 +1,81 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ambient } from '@/components/Ambient'
 import { BuyerBottomNav } from '@/components/BuyerBottomNav'
-import { LIVE_CATEGORIES, LIVE_ITEMS, SCHEDULED_ITEMS, formatLiveCountdown, type LiveCategoryId } from '@/lib/mockLives'
+import { formatLiveCountdown } from '@/lib/mockLives'
+import {
+  getActiveLives,
+  getUpcomingLives,
+  type LiveFeedCardResponse,
+  type LiveUpcomingCardResponse,
+  type PageResponse,
+} from '@/lib/liveActions'
 
-type CategoryFilter = 'todos' | LiveCategoryId
 type ViewMode = 'vivo' | 'proximos'
+
+type LiveExplorerScreenProps = {
+  initialActive: PageResponse<LiveFeedCardResponse>
+  initialUpcoming: PageResponse<LiveUpcomingCardResponse>
+  activeError?: boolean
+  upcomingError?: boolean
+}
+
+// Fallback visuals for cards with no thumbnailUrl — the backend has no
+// color/gradient field, so we derive a stable pick from the item id.
+const FALLBACK_GRADIENTS = [
+  'radial-gradient(ellipse at 50% 30%, #6b4a2a 0%, #2a1a10 60%, #120a08 100%)',
+  'radial-gradient(ellipse at 50% 30%, #3a1e2e 0%, #150a12 100%)',
+  'radial-gradient(ellipse at 50% 30%, #1a2a3a 0%, #0a1218 100%)',
+  'radial-gradient(ellipse at 50% 30%, #4a3420 0%, #1a1208 100%)',
+  'radial-gradient(ellipse at 50% 30%, #2a2a30 0%, #0e0e12 100%)',
+  'radial-gradient(ellipse at 50% 30%, #1a0e2e 0%, #0a0515 100%)',
+]
+const FALLBACK_ACCENTS = ['var(--brand-400)', 'var(--violet-400)', 'var(--teal-400)', '#f59e0b', '#38bdf8', '#e5e7eb']
+
+function hashId(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return h
+}
+
+function cardBackground(id: string, thumbnailUrl: string | null): string {
+  return thumbnailUrl ? `url(${thumbnailUrl}) center/cover no-repeat` : FALLBACK_GRADIENTS[hashId(id) % FALLBACK_GRADIENTS.length]
+}
+
+function cardAccent(id: string): string {
+  return FALLBACK_ACCENTS[hashId(id) % FALLBACK_ACCENTS.length]
+}
+
+function minutesUntil(scheduledAt: string): number {
+  return Math.max(0, Math.round((new Date(scheduledAt).getTime() - Date.now()) / 60000))
+}
 
 function textMatches(haystack: string, query: string) {
   return haystack.toLowerCase().includes(query.trim().toLowerCase())
+}
+
+/** Attaches an IntersectionObserver to the returned ref; fires onTrigger when
+ * it enters view and `enabled` is true (caller owns the hasMore/loading guard). */
+function useSentinel(enabled: boolean, onTrigger: () => void) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !enabled) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) onTrigger()
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [enabled, onTrigger])
+
+  return ref
 }
 
 function LiveModeToggle({
@@ -45,35 +110,12 @@ function LiveModeToggle({
   )
 }
 
-function CategoryChips({
-  active,
-  onSelect,
-}: {
-  active: CategoryFilter
-  onSelect: (id: CategoryFilter) => void
-}) {
-  return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-      {LIVE_CATEGORIES.map((cat) => (
-        <button
-          key={cat.id}
-          onClick={() => onSelect(cat.id)}
-          className={`category-pill${active === cat.id ? ' active' : ''}`}
-        >
-          <span>{cat.icon}</span>
-          {cat.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 function LiveGrid({
   items,
   columns,
   onSelect,
 }: {
-  items: typeof LIVE_ITEMS
+  items: LiveFeedCardResponse[]
   columns: 'grid-cols-2' | 'grid-cols-4'
   onSelect: (id: string) => void
 }) {
@@ -81,20 +123,19 @@ function LiveGrid({
     <div className={`grid ${columns} gap-3`}>
       {items.map((item) => (
         <div key={item.id} className="live-grid-card" onClick={() => onSelect(item.id)}>
-          <div className="live-grid-card-media" style={{ background: item.bg }} />
+          <div className="live-grid-card-media" style={{ background: cardBackground(item.id, item.thumbnailUrl) }} />
           <span className="absolute top-2 left-2 z-10 live-badge">
             <span className="dot" />
             Vivo
           </span>
-          <span className="live-viewers-badge">👁 {item.viewers}</span>
+          <span className="live-viewers-badge">👁 {item.currentViewers}</span>
           <div className="live-grid-card-overlay" />
           <div className="live-grid-card-body">
-            <span className="text-[9px] font-bold tracking-[0.14em] uppercase text-white/60">{item.categoryLabel}</span>
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full shrink-0" style={{ background: item.color }} />
-              <span className="text-[13px] font-bold text-white truncate">{item.storeShort}</span>
+              <span className="w-6 h-6 rounded-full shrink-0" style={{ background: cardAccent(item.id) }} />
+              <span className="text-[13px] font-bold text-white truncate">{item.sellerName ?? 'Vendedor'}</span>
             </div>
-            <span className="text-[11px] text-white/75 truncate">{item.product}</span>
+            <span className="text-[11px] text-white/75 truncate">{item.title}</span>
           </div>
         </div>
       ))}
@@ -102,34 +143,23 @@ function LiveGrid({
   )
 }
 
-function UpcomingGrid({
-  items,
-  columns,
-}: {
-  items: typeof SCHEDULED_ITEMS
-  columns: 'grid-cols-2' | 'grid-cols-4'
-}) {
+function UpcomingGrid({ items, columns }: { items: LiveUpcomingCardResponse[]; columns: 'grid-cols-2' | 'grid-cols-4' }) {
   return (
     <div className={`grid ${columns} gap-3`}>
       {items.map((item) => (
         <div key={item.id} className="live-grid-card">
-          <div className="live-grid-card-media" style={{ background: item.bg }} />
-          <span className="absolute top-2 left-2 z-10 buyer-upcoming-badge">
-            {formatLiveCountdown(item.minutesUntilStart)}
-          </span>
+          <div className="live-grid-card-media" style={{ background: cardBackground(item.id, item.thumbnailUrl) }} />
+          <span className="absolute top-2 left-2 z-10 buyer-upcoming-badge">{formatLiveCountdown(minutesUntil(item.scheduledAt))}</span>
           <button className="buyer-upcoming-bell" aria-label="Avisarme">
             🔔
           </button>
           <div className="live-grid-card-overlay" />
           <div className="live-grid-card-body">
-            <span className="text-[9px] font-bold tracking-[0.14em] uppercase text-white/60">{item.categoryLabel}</span>
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full shrink-0" style={{ background: item.color }} />
-              <span className="text-[13px] font-bold text-white truncate">{item.store}</span>
+              <span className="w-6 h-6 rounded-full shrink-0" style={{ background: cardAccent(item.id) }} />
+              <span className="text-[13px] font-bold text-white truncate">{item.sellerName ?? 'Vendedor'}</span>
             </div>
-            <span className="buyer-upcoming-time">
-              {item.day} · {item.time}
-            </span>
+            <span className="buyer-upcoming-time">{item.title}</span>
           </div>
         </div>
       ))}
@@ -137,25 +167,72 @@ function UpcomingGrid({
   )
 }
 
-export function LiveExplorerScreen() {
+export function LiveExplorerScreen({ initialActive, initialUpcoming, activeError, upcomingError }: LiveExplorerScreenProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [searchActive, setSearchActive] = useState(false)
-  const [activeCategory, setActiveCategory] = useState<CategoryFilter>('todos')
   const [viewMode, setViewMode] = useState<ViewMode>('vivo')
 
-  const filteredLives = LIVE_ITEMS.filter((item) => {
-    const matchesCategory = activeCategory === 'todos' || item.category === activeCategory
-    const matchesText = query.trim() === '' || textMatches(`${item.store} ${item.product}`, query)
-    return matchesCategory && matchesText
-  })
+  const [activeItems, setActiveItems] = useState(initialActive.content)
+  const [activePage, setActivePage] = useState(initialActive.number)
+  const [activeHasMore, setActiveHasMore] = useState(!initialActive.last)
+  const [activeLoading, setActiveLoading] = useState(false)
+  const activeLoadingRef = useRef(false)
 
-  const filteredScheduled = SCHEDULED_ITEMS.filter((item) => {
-    const matchesCategory = activeCategory === 'todos' || item.category === activeCategory
-    const matchesText = query.trim() === '' || textMatches(item.store, query)
-    return matchesCategory && matchesText
-  })
+  const [upcomingItems, setUpcomingItems] = useState(initialUpcoming.content)
+  const [upcomingPage, setUpcomingPage] = useState(initialUpcoming.number)
+  const [upcomingHasMore, setUpcomingHasMore] = useState(!initialUpcoming.last)
+  const [upcomingLoading, setUpcomingLoading] = useState(false)
+  const upcomingLoadingRef = useRef(false)
+
+  const loadMoreActive = useCallback(async () => {
+    if (activeLoadingRef.current || !activeHasMore) return
+    activeLoadingRef.current = true
+    setActiveLoading(true)
+    const result = await getActiveLives(activePage + 1)
+    if (result.ok) {
+      setActiveItems((prev) => [...prev, ...result.page.content])
+      setActivePage(result.page.number)
+      setActiveHasMore(!result.page.last)
+    } else {
+      setActiveHasMore(false)
+    }
+    activeLoadingRef.current = false
+    setActiveLoading(false)
+  }, [activeHasMore, activePage])
+
+  const loadMoreUpcoming = useCallback(async () => {
+    if (upcomingLoadingRef.current || !upcomingHasMore) return
+    upcomingLoadingRef.current = true
+    setUpcomingLoading(true)
+    const result = await getUpcomingLives(upcomingPage + 1)
+    if (result.ok) {
+      setUpcomingItems((prev) => [...prev, ...result.page.content])
+      setUpcomingPage(result.page.number)
+      setUpcomingHasMore(!result.page.last)
+    } else {
+      setUpcomingHasMore(false)
+    }
+    upcomingLoadingRef.current = false
+    setUpcomingLoading(false)
+  }, [upcomingHasMore, upcomingPage])
+
+  const isVivo = viewMode === 'vivo'
+  const loadMore = isVivo ? loadMoreActive : loadMoreUpcoming
+  const sentinelEnabled = isVivo ? activeHasMore && !activeLoading : upcomingHasMore && !upcomingLoading
+
+  const mobileSentinelRef = useSentinel(sentinelEnabled, loadMore)
+  const desktopSentinelRef = useSentinel(sentinelEnabled, loadMore)
+
+  // Backend has no search endpoint on /active or /upcoming — this only filters
+  // pages already loaded into memory, not the full remote dataset.
+  const filteredLives = activeItems.filter(
+    (item) => query.trim() === '' || textMatches(`${item.sellerName ?? ''} ${item.title}`, query),
+  )
+  const filteredScheduled = upcomingItems.filter(
+    (item) => query.trim() === '' || textMatches(`${item.sellerName ?? ''} ${item.title}`, query),
+  )
 
   function goToLive(id: string) {
     router.push(`/buyer/lives/${id}`)
@@ -168,7 +245,6 @@ export function LiveExplorerScreen() {
   }
 
   const trimmedQuery = query.trim()
-  const isVivo = viewMode === 'vivo'
   const heading = isVivo
     ? searchActive
       ? trimmedQuery
@@ -184,6 +260,8 @@ export function LiveExplorerScreen() {
   const emptyMessage = isVivo
     ? 'No encontramos lives para esta búsqueda.'
     : 'No encontramos programados para esta búsqueda.'
+  const loadingMore = isVivo ? activeLoading : upcomingLoading
+  const loadError = isVivo ? activeError : upcomingError
 
   return (
     <>
@@ -216,16 +294,7 @@ export function LiveExplorerScreen() {
         </div>
 
         <div className="px-5 mt-4">
-          <LiveModeToggle
-            mode={viewMode}
-            liveCount={LIVE_ITEMS.length}
-            scheduledCount={SCHEDULED_ITEMS.length}
-            onChange={setViewMode}
-          />
-        </div>
-
-        <div className="px-5 mt-4">
-          <CategoryChips active={activeCategory} onSelect={setActiveCategory} />
+          <LiveModeToggle mode={viewMode} liveCount={activeItems.length} scheduledCount={upcomingItems.length} onChange={setViewMode} />
         </div>
 
         <div className="px-5 mt-5 flex items-center justify-between">
@@ -248,7 +317,13 @@ export function LiveExplorerScreen() {
           ) : (
             <UpcomingGrid items={filteredScheduled} columns="grid-cols-2" />
           )}
-          {headingCount === 0 && <p className="text-[13px] text-(--ink-3) text-center py-10">{emptyMessage}</p>}
+          {loadError ? (
+            <p className="text-[13px] text-red-400 text-center py-10">No pudimos cargar los lives. Intentá de nuevo más tarde.</p>
+          ) : (
+            headingCount === 0 && <p className="text-[13px] text-(--ink-3) text-center py-10">{emptyMessage}</p>
+          )}
+          <div ref={mobileSentinelRef} className="h-1" />
+          {loadingMore && <p className="text-[12px] text-(--ink-3) text-center py-4">Cargando más...</p>}
         </div>
 
         <BuyerBottomNav active="lives" />
@@ -258,38 +333,30 @@ export function LiveExplorerScreen() {
       {/* ===== DESKTOP ===== */}
       <div className="hidden lg:flex flex-col stage screen-enter">
         <div className="px-12 py-8 flex flex-col gap-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-              <div className={`buyer-search-bar max-w-xl${searchActive ? ' active' : ''}`}>
-                {searchActive && (
-                  <button onClick={exitSearch} aria-label="Volver" className="text-(--ink-1) text-lg leading-none shrink-0">
-                    ←
-                  </button>
-                )}
-                <span className="shrink-0">🔍</span>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onFocus={() => setSearchActive(true)}
-                  placeholder="Buscar lives o tiendas"
-                  className="flex-1 bg-transparent outline-none text-[14px] text-(--ink-0) placeholder:text-(--ink-3) min-w-0"
-                />
-                {searchActive && query && (
-                  <button onClick={() => setQuery('')} aria-label="Limpiar" className="text-(--ink-3) text-base leading-none shrink-0">
-                    ✕
-                  </button>
-                )}
-              </div>
-              <div className="max-w-[280px] w-full">
-                <LiveModeToggle
-                  mode={viewMode}
-                  liveCount={LIVE_ITEMS.length}
-                  scheduledCount={SCHEDULED_ITEMS.length}
-                  onChange={setViewMode}
-                />
-              </div>
+          <div className="flex items-center gap-4">
+            <div className={`buyer-search-bar max-w-xl${searchActive ? ' active' : ''}`}>
+              {searchActive && (
+                <button onClick={exitSearch} aria-label="Volver" className="text-(--ink-1) text-lg leading-none shrink-0">
+                  ←
+                </button>
+              )}
+              <span className="shrink-0">🔍</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setSearchActive(true)}
+                placeholder="Buscar lives o tiendas"
+                className="flex-1 bg-transparent outline-none text-[14px] text-(--ink-0) placeholder:text-(--ink-3) min-w-0"
+              />
+              {searchActive && query && (
+                <button onClick={() => setQuery('')} aria-label="Limpiar" className="text-(--ink-3) text-base leading-none shrink-0">
+                  ✕
+                </button>
+              )}
             </div>
-            <CategoryChips active={activeCategory} onSelect={setActiveCategory} />
+            <div className="max-w-[280px] w-full">
+              <LiveModeToggle mode={viewMode} liveCount={activeItems.length} scheduledCount={upcomingItems.length} onChange={setViewMode} />
+            </div>
           </div>
 
           <div>
@@ -311,7 +378,13 @@ export function LiveExplorerScreen() {
             ) : (
               <UpcomingGrid items={filteredScheduled} columns="grid-cols-4" />
             )}
-            {headingCount === 0 && <p className="text-[13px] text-(--ink-3) text-center py-10">{emptyMessage}</p>}
+            {loadError ? (
+            <p className="text-[13px] text-red-400 text-center py-10">No pudimos cargar los lives. Intentá de nuevo más tarde.</p>
+          ) : (
+            headingCount === 0 && <p className="text-[13px] text-(--ink-3) text-center py-10">{emptyMessage}</p>
+          )}
+            <div ref={desktopSentinelRef} className="h-1" />
+            {loadingMore && <p className="text-[12px] text-(--ink-3) text-center py-4">Cargando más...</p>}
           </div>
         </div>
       </div>

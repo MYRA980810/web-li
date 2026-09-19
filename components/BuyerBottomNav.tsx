@@ -30,7 +30,7 @@ const TAB_ICONS: Record<BuyerTab, (props: NavIconProps) => React.JSX.Element> = 
 
 const TAB_LABELS: Record<BuyerTab, string> = {
   home: 'Inicio',
-  buscar: 'Buscar',
+  buscar: 'Tiendas',
   lives: 'Lives',
   compras: 'Compras',
   perfil: 'Perfil',

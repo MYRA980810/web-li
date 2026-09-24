@@ -11,6 +11,8 @@ import type { StoreCheckoutResultResponse } from '@/lib/cartActions'
 import type { CartLineView, CartStoreGroupView } from '@/lib/types'
 import { CheckoutResultView } from './CheckoutResultView'
 
+const LOW_STOCK_THRESHOLD = 5
+
 function QtyStepper({
   line,
   onDecrement,
@@ -165,58 +167,62 @@ export function CarritoScreen() {
                     {storeInitials(group.storeName)}
                   </div>
                 )}
-                <span className="text-[13px] font-bold text-(--ink-0) flex-1">{group.storeName}</span>
+                <span className="text-[15px] font-bold text-(--ink-0) flex-1">{group.storeName}</span>
               </div>
 
-              {group.lines.map((line) => {
-                const key = cartLineKey(line.productId, line.variantId)
-                return (
-                  <div key={key} className="buyer-cart-item">
-                    <button
-                      className={`buyer-checkbox self-center${selected.has(key) ? ' checked' : ''}`}
-                      onClick={() => toggleItem(key)}
-                      aria-label={`Seleccionar ${line.name}`}
-                    >
-                      ✓
-                    </button>
-                    <div
-                      className="buyer-cart-item-thumb"
-                      style={line.imageUrl ? undefined : { background: fallbackGradient(line.productId) }}
-                    >
-                      {line.imageUrl && <Image src={line.imageUrl} alt={line.name} fill sizes="76px" className="object-cover" />}
-                      {line.blockedReason === 'LIVE_EXCLUSIVE' && (
-                        <span className="absolute top-1 left-1 z-10 live-badge compact">
-                          <span className="dot" />
-                          Live
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-[13px] font-semibold text-(--ink-0) leading-snug">{line.name}</span>
-                        <button
-                          onClick={() => handleRemove(group, line)}
-                          className="text-(--ink-3) hover:text-(--ink-0) transition-colors shrink-0"
-                          aria-label="Quitar"
-                        >
-                          ✕
-                        </button>
+              <div className="flex flex-col gap-3">
+                {group.lines.map((line) => {
+                  const key = cartLineKey(line.productId, line.variantId)
+                  const lowStock = line.availableStock > 0 && line.availableStock <= LOW_STOCK_THRESHOLD
+                  return (
+                    <div key={key} className="buyer-cart-line-card">
+                      <button
+                        className={`buyer-checkbox${selected.has(key) ? ' checked' : ''}`}
+                        onClick={() => toggleItem(key)}
+                        aria-label={`Seleccionar ${line.name}`}
+                      >
+                        ✓
+                      </button>
+                      <div
+                        className="buyer-cart-line-thumb"
+                        style={line.imageUrl ? undefined : { background: fallbackGradient(line.productId) }}
+                      >
+                        {line.imageUrl && <Image src={line.imageUrl} alt={line.name} fill sizes="74px" className="object-cover" />}
+                        {line.blockedReason === 'LIVE_EXCLUSIVE' && (
+                          <span className="absolute top-1.5 left-1.5 z-10 live-badge compact">
+                            <span className="dot" />
+                            Live
+                          </span>
+                        )}
                       </div>
-                      {line.blockedReason === 'LIVE_EXCLUSIVE' && (
-                        <span className="buyer-inline-badge">Solo disponible en vivo</span>
-                      )}
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[14px] font-bold text-(--ink-0)">{formatMxn(line.unitPrice)}</span>
-                        <QtyStepper
-                          line={line}
-                          onDecrement={() => cart.decrementItem(group.storeId, line.productId, line.variantId)}
-                          onIncrement={() => cart.incrementItem(group.storeId, line.productId, line.variantId)}
-                        />
+                      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[14px] font-bold text-(--ink-0) leading-snug">{line.name}</span>
+                          <button
+                            onClick={() => handleRemove(group, line)}
+                            className="text-(--ink-3) hover:text-(--ink-0) transition-colors shrink-0"
+                            aria-label="Quitar"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {line.blockedReason === 'LIVE_EXCLUSIVE' && (
+                          <span className="buyer-inline-badge">Solo disponible en vivo</span>
+                        )}
+                        {lowStock && <span className="buyer-inline-badge">Quedan {line.availableStock}</span>}
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <span className="font-display text-[16px] font-extrabold text-(--ink-0)">{formatMxn(line.unitPrice)}</span>
+                          <QtyStepper
+                            line={line}
+                            onDecrement={() => cart.decrementItem(group.storeId, line.productId, line.variantId)}
+                            onIncrement={() => cart.incrementItem(group.storeId, line.productId, line.variantId)}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           )
         })
@@ -230,25 +236,27 @@ export function CarritoScreen() {
 
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
-        <div className="buyer-store-top-bar">
-          <button onClick={() => router.back()} className="buyer-icon-btn" aria-label="Volver">←</button>
-          <div className="flex flex-col items-center">
-            <span className="font-display font-bold text-[15px] text-(--ink-0)">Mi carrito</span>
-            <span className="text-[11px] text-(--ink-3)">{totalItems} artículos de {storeCount} {storeCount === 1 ? 'tienda' : 'tiendas'}</span>
+        <div className="flex items-center gap-4 px-5 pt-5">
+          <button onClick={() => router.back()} className="product-hero-overlay-btn shrink-0" aria-label="Volver">←</button>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <span className="font-display font-bold text-[22px] text-(--ink-0) leading-tight">Mi carrito</span>
+            <span className="text-[12px] text-(--ink-3)">{totalItems} artículos de {storeCount} {storeCount === 1 ? 'tienda' : 'tiendas'}</span>
           </div>
-          <button className="text-[13px] font-semibold text-brand-400 hover:text-brand-300 transition-colors">Editar</button>
+          <button className="text-[13px] font-bold text-brand-400 hover:text-brand-300 transition-colors shrink-0">Editar</button>
         </div>
 
-        <div className="px-5 pt-5 pb-2 reveal d1">{content}</div>
+        <div className="px-5 pt-5 pb-4 reveal d1">{content}</div>
 
-        <div className="buyer-sticky-footer">
-          <div className="flex flex-col">
-            <span className="text-[11px] text-(--ink-3)">{selectedCount} seleccionados</span>
-            <span className="text-[19px] font-bold text-(--ink-0)">{formatMxn(selectedTotal)}</span>
+        <div className="buyer-floating-bar-wrap">
+          <div className="buyer-floating-bar pl-4">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--ink-3)">{selectedCount} seleccionados</span>
+              <span className="font-display text-[19px] font-extrabold text-(--ink-0)">{formatMxn(selectedTotal)}</span>
+            </div>
+            <button className="live-launch-btn flex-1 justify-center" disabled={selectedCount === 0 || checkingOut} onClick={handlePagar}>
+              {checkingOut ? 'Procesando...' : 'Pagar →'}
+            </button>
           </div>
-          <button className="live-launch-btn flex-1 justify-center" disabled={selectedCount === 0 || checkingOut} onClick={handlePagar}>
-            {checkingOut ? 'Procesando...' : 'Pagar →'}
-          </button>
         </div>
       </div>
 

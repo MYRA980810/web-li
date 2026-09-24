@@ -109,8 +109,80 @@ export function ProductDetailBuyerScreen({ product, store }: Props) {
     if (ok) router.push('/buyer/cart')
   }
 
-  const content = (
-    <div className="flex flex-col gap-4">
+  const liveNowBanner = product.isLiveNow && (
+    <span className="buyer-live-now-banner w-fit">
+      <span className="w-1.5 h-1.5 rounded-full bg-brand-500 [box-shadow:0_0_8px_var(--brand-500)]" />
+      Se muestra en el live ahora
+    </span>
+  )
+
+  const footerStepper = (
+    <div className="buyer-qty-stepper">
+      <button className="buyer-qty-btn" disabled={quantity <= 1} onClick={() => setQuantity((q) => q - 1)} aria-label="Restar">−</button>
+      <span className="text-[13px] font-bold text-(--ink-0) w-4 text-center">{quantity}</span>
+      <button className="buyer-qty-btn" disabled={quantity >= availableQuantity} onClick={() => setQuantity((q) => q + 1)} aria-label="Sumar">+</button>
+    </div>
+  )
+
+  const favoriteLabel = favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'
+
+  const mobileHero = (
+    <div
+      className="product-hero-full"
+      style={product.images.length === 0 ? { background: fallbackGradient(product.id) } : undefined}
+    >
+      {product.images.length > 0 && (
+        <Image
+          src={product.images[activeImage] ?? product.images[0]!}
+          alt={product.name}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+      )}
+
+      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-5">
+        <button onClick={() => router.back()} className="product-hero-overlay-btn" aria-label="Volver">←</button>
+        <div className="flex items-center gap-2.5">
+          <button className="product-hero-overlay-btn" aria-label="Expandir">↗</button>
+          <button
+            className={`product-hero-overlay-btn${favorite ? ' text-brand-400' : ''}`}
+            onClick={() => setFavorite((prev) => !prev)}
+            aria-label={favoriteLabel}
+          >
+            {favorite ? '♥' : '♡'}
+          </button>
+        </div>
+      </div>
+
+      <div className="absolute left-5 top-[76px] z-10 flex flex-col gap-2.5">
+        {liveNowBanner}
+        {product.images.length > 1 && (
+          <div className="flex flex-col gap-2">
+            {product.images.map((img, idx) => (
+              <button
+                key={img}
+                className={`product-hero-thumb${activeImage === idx ? ' active' : ''}`}
+                onClick={() => setActiveImage(idx)}
+                aria-label={`Ver imagen ${idx + 1}`}
+              >
+                <Image src={img} alt="" fill sizes="46px" className="object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {product.images.length > 0 && (
+        <span className="product-hero-counter absolute bottom-4 right-5 z-10">
+          {activeImage + 1}/{product.images.length}
+        </span>
+      )}
+    </div>
+  )
+
+  const desktopHero = (
       <div className="flex gap-3">
         {product.images.length > 1 && (
           <div className="buyer-thumb-rail">
@@ -146,7 +218,10 @@ export function ProductDetailBuyerScreen({ product, store }: Props) {
           )}
         </div>
       </div>
+  )
 
+  const details = (
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2.5">
           <span className="eyebrow text-[10px]">{(product.category ?? 'Producto').toUpperCase()}</span>
@@ -236,10 +311,17 @@ export function ProductDetailBuyerScreen({ product, store }: Props) {
               {storeInitials(store.name)}
             </div>
           )}
-          <div className="flex-1 min-w-0 flex items-center gap-1.5">
-            <span className="text-[13px] font-bold text-(--ink-0) truncate">{store.name}</span>
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="text-[14px] font-bold text-(--ink-0) truncate">{store.name}</span>
+            {(store.reviewCount > 0 || store.followerCount > 0) && (
+              <span className="text-[11px] text-(--ink-3) truncate">
+                {store.reviewCount > 0 && <>★ {store.rating.toFixed(1)}</>}
+                {store.reviewCount > 0 && store.followerCount > 0 && ' · '}
+                {store.followerCount > 0 && <>{store.followerCount.toLocaleString('es-MX')} seguidores</>}
+              </span>
+            )}
           </div>
-          <span className="seller-ghost-sm shrink-0">Ver tienda</span>
+          <span className="buyer-store-pill-btn shrink-0">Ver tienda</span>
         </div>
       )}
     </div>
@@ -251,42 +333,20 @@ export function ProductDetailBuyerScreen({ product, store }: Props) {
 
       {/* ===== MOBILE ===== */}
       <div className="lg:hidden stage screen-enter">
-        <div className="buyer-store-top-bar">
-          <button onClick={() => router.back()} className="buyer-icon-btn" aria-label="Volver">←</button>
-          <div className="flex items-center gap-2">
-            <button className="buyer-icon-btn" aria-label="Expandir">↗</button>
-            <button
-              className={`buyer-icon-btn${favorite ? ' text-brand-400' : ''}`}
-              onClick={() => setFavorite((prev) => !prev)}
-              aria-label={favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-            >
-              {favorite ? '♥' : '♡'}
+        {mobileHero}
+
+        <div className="px-5 pt-5 pb-4 reveal d1">{details}</div>
+
+        <div className="buyer-floating-bar-wrap">
+          <div className="buyer-floating-bar">
+            {footerStepper}
+            <button className="buyer-cart-square-btn" aria-label="Agregar al carrito" disabled={!canAddToCart} onClick={handleAddToCart}>
+              {added ? '✓' : '🛒'}
+            </button>
+            <button className="live-launch-btn flex-1 justify-center" disabled={!canAddToCart} onClick={handleBuyNow}>
+              Comprar · {formatMxn(totalPrice)}
             </button>
           </div>
-        </div>
-
-        <div className="px-5 pt-5 pb-2 reveal d1 flex flex-col gap-4">
-          {product.isLiveNow && (
-            <span className="buyer-live-now-banner w-fit">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 [box-shadow:0_0_8px_var(--brand-500)]" />
-              Se muestra en el live ahora
-            </span>
-          )}
-          {content}
-        </div>
-
-        <div className="buyer-sticky-footer">
-          <div className="buyer-qty-stepper">
-            <button className="buyer-qty-btn" disabled={quantity <= 1} onClick={() => setQuantity((q) => q - 1)} aria-label="Restar">−</button>
-            <span className="text-[13px] font-bold text-(--ink-0) w-4 text-center">{quantity}</span>
-            <button className="buyer-qty-btn" disabled={quantity >= availableQuantity} onClick={() => setQuantity((q) => q + 1)} aria-label="Sumar">+</button>
-          </div>
-          <button className="buyer-icon-btn" aria-label="Agregar al carrito" disabled={!canAddToCart} onClick={handleAddToCart}>
-            {added ? '✓' : '🛒'}
-          </button>
-          <button className="live-launch-btn flex-1 justify-center" disabled={!canAddToCart} onClick={handleBuyNow}>
-            Comprar · {formatMxn(totalPrice)}
-          </button>
         </div>
       </div>
 
@@ -297,7 +357,7 @@ export function ProductDetailBuyerScreen({ product, store }: Props) {
           <button
             className={`buyer-icon-btn${favorite ? ' text-brand-400' : ''}`}
             onClick={() => setFavorite((prev) => !prev)}
-            aria-label={favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            aria-label={favoriteLabel}
           >
             {favorite ? '♥' : '♡'}
           </button>
@@ -305,22 +365,14 @@ export function ProductDetailBuyerScreen({ product, store }: Props) {
 
         <div className="flex items-start justify-center py-10 px-8">
           <div className="w-full max-w-2xl flex flex-col gap-4">
-            {product.isLiveNow && (
-              <span className="buyer-live-now-banner w-fit">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-500 [box-shadow:0_0_8px_var(--brand-500)]" />
-                Se muestra en el live ahora
-              </span>
-            )}
-            {content}
+            {liveNowBanner}
+            {desktopHero}
+            {details}
           </div>
         </div>
 
         <div className="buyer-sticky-footer !justify-center gap-4">
-          <div className="buyer-qty-stepper">
-            <button className="buyer-qty-btn" disabled={quantity <= 1} onClick={() => setQuantity((q) => q - 1)} aria-label="Restar">−</button>
-            <span className="text-[13px] font-bold text-(--ink-0) w-4 text-center">{quantity}</span>
-            <button className="buyer-qty-btn" disabled={quantity >= availableQuantity} onClick={() => setQuantity((q) => q + 1)} aria-label="Sumar">+</button>
-          </div>
+          {footerStepper}
           <button className="buyer-icon-btn" aria-label="Agregar al carrito" disabled={!canAddToCart} onClick={handleAddToCart}>
             {added ? '✓' : '🛒'}
           </button>

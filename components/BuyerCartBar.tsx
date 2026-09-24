@@ -2,19 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { BagIcon } from '@/components/icons/BuyerNavIcons'
 import { useCart } from '@/app/buyer/_providers/CartProvider'
 import { formatMxn } from '@/lib/format'
 
 export function BuyerCartBar() {
   const router = useRouter()
+  const pathname = usePathname()
   const { groups, count } = useCart()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
 
-  if (!mounted || count === 0) return null
+  if (!mounted || count === 0 || pathname.startsWith('/buyer/cart')) return null
 
   const total = groups.reduce(
     (sum, g) => sum + g.lines.reduce((lineSum, l) => lineSum + l.unitPrice * l.quantity, 0),

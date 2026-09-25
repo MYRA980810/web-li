@@ -1,7 +1,7 @@
 'use server'
 
 import { createLiveSchema, type CreateLiveInput } from './schemas'
-import { API, parseProblemDetail, requireToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import { API, parseProblemDetail, requireToken, getToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -660,6 +660,65 @@ export async function getUpcomingLives(page = 0, size = 20): Promise<GetUpcoming
 
   const page_ = await res.json()
   return { ok: true, page: page_ as PageResponse<LiveUpcomingCardResponse> }
+}
+
+// ─── Live reminders (subscribe / unsubscribe / subscribed) ───────────────────
+
+export type LiveReminderResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+const MAX_SUBSCRIPTION_LOOKUPS = 50
+
+/** BUYER-only. Uses getToken() (not requireToken()) so anonymous or non-buyer
+ * sessions fail quietly instead of redirecting from a bell tap. */
+async function sendLiveReminderRequest(liveId: string, method: 'POST' | 'DELETE'): Promise<LiveReminderResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'Iniciá sesión para activar recordatorios' }
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/${encodeURIComponent(liveId)}/subscribe`, { method }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  // Both endpoints are idempotent on the backend, so any non-2xx is a real
+  // failure the optimistic UI must revert.
+  if (res.ok) return { ok: true }
+  return { ok: false, error: await parseProblemDetail(res) }
+}
+
+export async function subscribeToLive(liveId: string): Promise<LiveReminderResult> {
+  return sendLiveReminderRequest(liveId, 'POST')
+}
+
+export async function unsubscribeFromLive(liveId: string): Promise<LiveReminderResult> {
+  return sendLiveReminderRequest(liveId, 'DELETE')
+}
+
+/** Reminder state for a bounded batch of lives. Any failure (401/403 for
+ * non-buyers, network, bad payload) resolves to `false` for that id. */
+export async function getLiveSubscriptions(liveIds: string[]): Promise<Record<string, boolean>> {
+  const ids = Array.from(new Set(liveIds)).slice(0, MAX_SUBSCRIPTION_LOOKUPS)
+  const result: Record<string, boolean> = {}
+  const token = await getToken()
+  if (!token || ids.length === 0) return result
+
+  await Promise.all(
+    ids.map(async (liveId) => {
+      try {
+        const res = await fetchWithAuth(`${API}/api/lives/${encodeURIComponent(liveId)}/subscribed`, { method: 'GET' }, token)
+        if (!res.ok) return
+        const data = (await res.json()) as { subscribed?: unknown }
+        result[liveId] = data.subscribed === true
+      } catch (err) {
+        if (isNextInternalError(err)) throw err
+      }
+    }),
+  )
+  return result
 }
 
 // ─── sendLiveHeartbeat ────────────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-import { ALL_LIVE_CATEGORY, getLiveCategory } from '@/lib/liveCategoryMock'
 import { storeInitials } from '@/lib/visualFallbacks'
 
 // Pure, framework-free helpers for the buyer lives explorer. Everything that
@@ -108,26 +107,13 @@ export function slotCountdown(startsAt: number, now: number): SlotCountdown {
   return { label: hours > 0 ? `En ${days} d ${hours} h` : `En ${days} d`, progress: null }
 }
 
-// ─── Filtering & counting ─────────────────────────────────────────────────────
+// ─── Search ───────────────────────────────────────────────────────────────────
 
-/** Client-side filter over loaded items — the backend has no search/category params. */
-export function filterLives<T extends LiveLike>(items: T[], query: string, categoryId: string): T[] {
+/** Client-side text search over loaded items (category filtering happens on the backend). */
+export function searchLives<T extends LiveLike>(items: T[], query: string): T[] {
   const q = query.trim().toLowerCase()
-  return items.filter((item) => {
-    if (categoryId !== ALL_LIVE_CATEGORY.id && getLiveCategory(item.id).id !== categoryId) return false
-    if (q === '') return true
-    return `${item.sellerName ?? ''} ${item.title}`.toLowerCase().includes(q)
-  })
-}
-
-/** Count of items per category id; the "all" id holds the grand total. */
-export function countLivesByCategory(items: { id: string }[]): Record<string, number> {
-  const counts: Record<string, number> = { [ALL_LIVE_CATEGORY.id]: items.length }
-  for (const item of items) {
-    const id = getLiveCategory(item.id).id
-    counts[id] = (counts[id] ?? 0) + 1
-  }
-  return counts
+  if (q === '') return items
+  return items.filter((item) => `${item.sellerName ?? ''} ${item.title}`.toLowerCase().includes(q))
 }
 
 // ─── Upcoming grouping (day → exact start time slot) ─────────────────────────

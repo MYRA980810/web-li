@@ -2,7 +2,8 @@
 
 import { useSyncExternalStore, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { ALL_LIVE_CATEGORY, LIVE_CATEGORIES, type LiveCategory } from '@/lib/liveCategoryMock'
+import type { ActiveLiveCounts } from '@/lib/liveActions'
+import { ALL_LIVE_CATEGORY, type LiveCategory } from '@/lib/liveCategories'
 import { CloseIcon, LiveCategoryIcon } from './LivesIcons'
 
 export type LiveCategoriesSheetProps = {
@@ -10,28 +11,31 @@ export type LiveCategoriesSheetProps = {
   onClose: () => void
   selectedId: string
   onSelect: (categoryId: string) => void
-  /** Loaded live items per category id ("all" holds the total). */
-  liveCounts: Record<string, number>
-  /** Loaded upcoming items per category id ("all" holds the total). */
-  upcomingCounts: Record<string, number>
+  /** Featured categories shown as tiles after "Todo". */
+  categories: readonly LiveCategory[]
+  /** Backend LIVE counts; null when they could not be loaded (tiles show no numbers). */
+  counts: ActiveLiveCounts | null
 }
-
-const TILES: LiveCategory[] = [ALL_LIVE_CATEGORY, ...LIVE_CATEGORIES]
 
 const noopSubscribe = () => () => {}
 
-function CountLine({ live, upcoming }: { live: number; upcoming: number }) {
+function CountLine({ live }: { live: number | null }) {
+  if (live === null) return null
   if (live > 0) return <span className="text-[12px] font-semibold text-brand-300">{live} en vivo</span>
-  if (upcoming > 0) return <span className="text-[12px] font-semibold text-(--violet-400)">{upcoming} próximos</span>
-  return <span className="text-[12px] text-(--ink-3)">Sin lives</span>
+  return <span className="text-[12px] text-(--ink-3)">Sin lives en vivo</span>
 }
 
 // Portal: .screen-enter creates a stacking context that would trap position:fixed.
-export function LiveCategoriesSheet({ open, onClose, selectedId, onSelect, liveCounts, upcomingCounts }: LiveCategoriesSheetProps) {
+export function LiveCategoriesSheet({ open, onClose, selectedId, onSelect, categories, counts }: LiveCategoriesSheetProps) {
   const isClient = useSyncExternalStore(noopSubscribe, () => true, () => false)
   if (!isClient || !open) return null
 
-  const liveNow = liveCounts[ALL_LIVE_CATEGORY.id] ?? 0
+  const tiles: LiveCategory[] = [ALL_LIVE_CATEGORY, ...categories]
+  const countFor = (categoryId: string): number | null => {
+    if (!counts) return null
+    if (categoryId === ALL_LIVE_CATEGORY.id) return counts.total
+    return counts.byCategory[categoryId] ?? 0
+  }
 
   return createPortal(
     <>
@@ -48,7 +52,7 @@ export function LiveCategoriesSheet({ open, onClose, selectedId, onSelect, liveC
           <div className="flex flex-col gap-1">
             <span className="font-display font-extrabold text-[22px] text-(--ink-0)">Categorías</span>
             <span className="text-[13px] text-(--ink-3)">
-              {LIVE_CATEGORIES.length} categorías · {liveNow} lives ahora
+              {categories.length} categorías{counts && ` · ${counts.total} lives ahora`}
             </span>
           </div>
           <button type="button" onClick={onClose} className="stock-filter-close" aria-label="Cerrar">
@@ -57,9 +61,8 @@ export function LiveCategoriesSheet({ open, onClose, selectedId, onSelect, liveC
         </div>
 
         <div className="grid grid-cols-3 gap-2.5 p-5 overflow-y-auto">
-          {TILES.map((category) => {
-            const live = liveCounts[category.id] ?? 0
-            const upcoming = upcomingCounts[category.id] ?? 0
+          {tiles.map((category) => {
+            const live = countFor(category.id)
             const selected = selectedId === category.id
             const tintStyle = { '--lives-tint': category.tint } as CSSProperties
             return (
@@ -74,12 +77,12 @@ export function LiveCategoriesSheet({ open, onClose, selectedId, onSelect, liveC
                 className={`buyer-lives-cat-tile${selected ? ' selected' : ''}`}
                 style={tintStyle}
               >
-                {live > 0 && <span className="stock-filter-inv-card-dot" aria-hidden="true" />}
+                {live !== null && live > 0 && <span className="stock-filter-inv-card-dot" aria-hidden="true" />}
                 <span className="buyer-lives-cat-icon w-12 h-12">
                   <LiveCategoryIcon icon={category.icon} size={24} />
                 </span>
                 <span className="font-display font-bold text-[14px] text-(--ink-0) mt-1">{category.label}</span>
-                <CountLine live={live} upcoming={upcoming} />
+                <CountLine live={live} />
               </button>
             )
           })}

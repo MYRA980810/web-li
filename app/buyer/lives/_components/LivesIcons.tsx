@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { LiveCategoryIconKey } from '@/lib/liveCategoryMock'
+import type { LiveCategoryIconKey } from '@/lib/liveCategories'
 
 export type LivesIconProps = { size?: number }
 
@@ -86,6 +86,11 @@ const CATEGORY_PATHS: Record<LiveCategoryIconKey, ReactNode> = {
       <path d="M12 10.3 3.5 16.2a1 1 0 0 0 .6 1.8h15.8a1 1 0 0 0 .6-1.8z" />
     </>
   ),
+  tshirt: (
+    <>
+      <path d="M9 4 4 6.5 2.5 11l3 1.2L7 10.5V20h10v-9.5l1.5 1.7 3-1.2L20 6.5 15 4a3 3 0 0 1-6 0z" />
+    </>
+  ),
   lipstick: (
     <>
       <path d="M9.5 21V13h5v8z" />
@@ -152,6 +157,12 @@ const CATEGORY_PATHS: Record<LiveCategoryIconKey, ReactNode> = {
       <path d="M4.5 10h12v4a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z" />
       <path d="M16.5 11h1.5a2.5 2.5 0 0 1 0 5h-1.8" />
       <path d="M8.5 3.5v3M12.5 3.5v3" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M3.5 12.2V5a1.5 1.5 0 0 1 1.5-1.5h7.2a1.5 1.5 0 0 1 1.1.4l7.3 7.3a1.5 1.5 0 0 1 0 2.1l-7.2 7.2a1.5 1.5 0 0 1-2.1 0l-7.3-7.3a1.5 1.5 0 0 1-.5-1z" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
     </>
   ),
 }

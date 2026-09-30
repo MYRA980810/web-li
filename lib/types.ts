@@ -74,6 +74,8 @@ export type Category = {
   id: string
   name: string
   slug: string
+  displayOrder?: number | null
+  featured?: boolean
 }
 
 export type AddressType = 'RESIDENTIAL_BUILDING' | 'STORE' | 'APARTMENT' | 'HOTEL' | 'OFFICE' | 'OTHER'

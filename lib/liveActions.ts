@@ -597,6 +597,7 @@ export type LiveFeedCardResponse = {
   thumbnailUrl: string | null
   currentViewers: number
   startedAt: string
+  categoryId: string | null
 }
 
 export type LiveUpcomingCardResponse = {
@@ -607,6 +608,14 @@ export type LiveUpcomingCardResponse = {
   sellerName: string | null
   thumbnailUrl: string | null
   scheduledAt: string
+  categoryId: string | null
+}
+
+/** Feed query params; `categoryId` is only sent for a real category (not 'all'). */
+function feedParams(page: number, size: number, categoryId?: string): URLSearchParams {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (categoryId && categoryId !== 'all') params.set('categoryId', categoryId)
+  return params
 }
 
 export type GetActiveLivesResult =
@@ -614,9 +623,9 @@ export type GetActiveLivesResult =
   | { ok: false; error: string }
 
 /** Buyer-facing feed of lives currently in progress. */
-export async function getActiveLives(page = 0, size = 20): Promise<GetActiveLivesResult> {
+export async function getActiveLives(page = 0, size = 20, categoryId?: string): Promise<GetActiveLivesResult> {
   const token = await requireToken()
-  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  const params = feedParams(page, size, categoryId)
 
   let res: Response
   try {
@@ -641,9 +650,9 @@ export type GetUpcomingLivesResult =
 
 /** Buyer-facing feed of scheduled lives. `scheduledAt` is a raw instant — the
  * caller computes the countdown, the backend does not pre-compute one. */
-export async function getUpcomingLives(page = 0, size = 20): Promise<GetUpcomingLivesResult> {
+export async function getUpcomingLives(page = 0, size = 20, categoryId?: string): Promise<GetUpcomingLivesResult> {
   const token = await requireToken()
-  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  const params = feedParams(page, size, categoryId)
 
   let res: Response
   try {
@@ -660,6 +669,63 @@ export async function getUpcomingLives(page = 0, size = 20): Promise<GetUpcoming
 
   const page_ = await res.json()
   return { ok: true, page: page_ as PageResponse<LiveUpcomingCardResponse> }
+}
+
+// ─── getActiveLiveCounts ──────────────────────────────────────────────────────
+
+export type ActiveLiveCounts = {
+  /** All LIVE lives, including those without a category. */
+  total: number
+  /** LIVE lives per category UUID; categories with zero lives are omitted. */
+  byCategory: Record<string, number>
+}
+
+export type GetActiveLiveCountsResult =
+  | { ok: true;  counts: ActiveLiveCounts }
+  | { ok: false; error: string }
+
+type CategoryCountResponse = { categoryId: string; count: number }
+
+/** Live counts for the buyer category sheet. category-counts omits lives
+ * without a category, so the grand total comes from the active feed's
+ * totalElements (requested with size 1). */
+export async function getActiveLiveCounts(): Promise<GetActiveLiveCountsResult> {
+  const token = await requireToken()
+
+  let countsRes: Response
+  let feedResult: GetActiveLivesResult
+  try {
+    ;[countsRes, feedResult] = await Promise.all([
+      fetchWithAuth(`${API}/api/lives/active/category-counts`, { method: 'GET' }, token),
+      getActiveLives(0, 1),
+    ])
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!countsRes.ok) {
+    const error = await parseProblemDetail(countsRes)
+    return { ok: false, error }
+  }
+  if (!feedResult.ok) return { ok: false, error: feedResult.error }
+
+  let data: unknown
+  try {
+    data = await countsRes.json()
+  } catch {
+    return { ok: false, error: 'Respuesta inválida del servidor' }
+  }
+  if (!Array.isArray(data)) return { ok: false, error: 'Respuesta inválida del servidor' }
+
+  const byCategory: Record<string, number> = {}
+  for (const entry of data as CategoryCountResponse[]) {
+    if (entry && typeof entry.categoryId === 'string' && typeof entry.count === 'number') {
+      byCategory[entry.categoryId] = entry.count
+    }
+  }
+
+  return { ok: true, counts: { total: feedResult.page.totalElements, byCategory } }
 }
 
 // ─── Live reminders (subscribe / unsubscribe / subscribed) ───────────────────

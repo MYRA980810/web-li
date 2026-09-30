@@ -16,7 +16,7 @@ export function LiveNowGrid({ items, columns }: LiveNowGridProps) {
       {items.map((item) => (
         <Link key={item.id} href={`/buyer/lives/${item.id}`} className="live-grid-card block">
           <div className="live-grid-card-media">
-            <LiveCover liveId={item.id} thumbnailUrl={item.thumbnailUrl} title={item.title} sizes={sizes} />
+            <LiveCover categoryId={item.categoryId} thumbnailUrl={item.thumbnailUrl} title={item.title} sizes={sizes} />
           </div>
           <div className="live-grid-card-overlay" />
           <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between gap-2">

@@ -4,7 +4,8 @@ import { useSyncExternalStore, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import type { ActiveLiveCounts } from '@/lib/liveActions'
 import { ALL_LIVE_CATEGORY, type LiveCategory } from '@/lib/liveCategories'
-import { CloseIcon, LiveCategoryIcon } from './LivesIcons'
+import { LiveCategoryIcon } from '@/components/LiveCategoryIcon'
+import { CloseIcon } from './LivesIcons'
 
 export type LiveCategoriesSheetProps = {
   open: boolean

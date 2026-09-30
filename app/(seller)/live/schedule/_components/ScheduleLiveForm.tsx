@@ -6,7 +6,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
+import { LiveCategoryPicker } from '@/components/LiveCategoryPicker'
 import { createLive, uploadLiveThumbnail } from '@/lib/liveActions'
+import type { LiveCategory } from '@/lib/liveCategories'
 import { TimeWheel } from './TimeWheel'
 
 const WEEKDAY_LABELS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
@@ -60,13 +62,18 @@ function buildCalendarCells(monthCursor: Date): CalendarCell[] {
   return cells
 }
 
-type Props = { storeId: string | null }
+type Props = {
+  storeId: string | null
+  /** Featured live categories the seller picks the live's category from. */
+  liveCategories: LiveCategory[]
+}
 
-export function ScheduleLiveForm({ storeId }: Props) {
+export function ScheduleLiveForm({ storeId, liveCategories }: Props) {
   const router  = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [title, setTitle]                     = useState('')
+  const [categoryId, setCategoryId]           = useState<string | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [monthCursor, setMonthCursor]         = useState<Date>(() => startOfMonth(new Date()))
   const [selectedDay, setSelectedDay]         = useState<number | null>(null)
@@ -109,6 +116,7 @@ export function ScheduleLiveForm({ storeId }: Props) {
 
   const canSubmit =
     title.trim().length > 0 &&
+    categoryId !== null &&
     thumbnailPreview !== null &&
     selectedDay !== null &&
     selectedHour !== null &&
@@ -116,7 +124,7 @@ export function ScheduleLiveForm({ storeId }: Props) {
     !isLoading
 
   async function handleSubmit() {
-    if (!canSubmit || selectedDay === null || selectedHour === null || selectedMinute === null) return
+    if (!canSubmit || categoryId === null || selectedDay === null || selectedHour === null || selectedMinute === null) return
 
     setIsLoading(true)
     setError(null)
@@ -151,6 +159,7 @@ export function ScheduleLiveForm({ storeId }: Props) {
       context:                storeId ? 'STORE' : 'SELLER_PROFILE',
       storeId:                storeId ?? undefined,
       displayDurationSeconds: 60,
+      categoryId,
     })
 
     if (!result.ok) {
@@ -178,6 +187,21 @@ export function ScheduleLiveForm({ storeId }: Props) {
           placeholder="Ej: Noche de Jazz & Neon"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Live category */}
+      <div className="px-5 mt-7 reveal d1">
+        <span id={`live-category-label${idSuffix}`} className="store-form-label">
+          Categoría
+        </span>
+        <LiveCategoryPicker
+          categories={liveCategories}
+          selectedId={categoryId}
+          onSelect={setCategoryId}
+          idSuffix={idSuffix}
+          labelledBy={`live-category-label${idSuffix}`}
           disabled={isLoading}
         />
       </div>

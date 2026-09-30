@@ -35,6 +35,9 @@ type LiveCategoryPresentation = Pick<LiveCategory, 'label' | 'icon' | 'tint'>
 
 export const DEFAULT_LIVE_TINT = '#ff3d96'
 
+/** Featured categories rarely change — pages cache the catalog for 5 minutes. */
+export const LIVE_CATEGORIES_REVALIDATE_SECONDS = 300
+
 export const ALL_LIVE_CATEGORY: LiveCategory = {
   id: 'all',
   slug: 'all',

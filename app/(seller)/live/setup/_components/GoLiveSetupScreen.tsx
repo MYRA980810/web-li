@@ -7,10 +7,12 @@ import { Ambient } from '@/components/Ambient'
 import { SellerBottomNav } from '@/components/SellerBottomNav'
 import { defaultVariant } from '@/components/StockProductPicker'
 import { hotProductDraftToFormData, type HotProductDraft } from '@/components/HotProductFields'
+import { LiveCategoryPicker } from '@/components/LiveCategoryPicker'
 import { createLive, addCatalogLiveProduct, addHotLiveProduct, uploadLiveThumbnail } from '@/lib/liveActions'
 import { StockPickerDrawer } from './StockPickerDrawer'
 import { HotProductDrawer } from './HotProductDrawer'
 import type { ProductView, Category } from '@/lib/types'
+import type { LiveCategory } from '@/lib/liveCategories'
 
 // Backend constraint: @Min(15) @Max(120)
 const DEPLOY_STEPS = [
@@ -39,15 +41,19 @@ type HotDraftEntry = { id: string; draft: HotProductDraft }
 type Props = {
   storeId: string | null
   products: ProductView[]
+  /** Seller product categories, used by the stock picker. */
   categories: Category[]
+  /** Featured live categories the seller picks the live's category from. */
+  liveCategories: LiveCategory[]
 }
 
-export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
+export function GoLiveSetupScreen({ storeId, products, categories, liveCategories }: Props) {
   const router = useRouter()
 
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [title, setTitle]         = useState('')
+  const [categoryId, setCategoryId] = useState<string | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [deployIdx, setDeployIdx] = useState(2)
   const [beautyAI, setBeautyAI]   = useState(true)
@@ -61,6 +67,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
   const [hotDrafts, setHotDrafts]         = useState<HotDraftEntry[]>([])
 
   const deploySeconds = DEPLOY_STEPS[deployIdx].seconds
+  const canStart      = !!title.trim() && !!categoryId && !!thumbnailPreview && !isLoading
   const fillPct       = (deployIdx / (DEPLOY_STEPS.length - 1)) * 100
 
   // Preserves selection order (Set iteration order) rather than catalog order.
@@ -109,6 +116,12 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
     setIsLoading(true)
     setError(null)
 
+    if (!categoryId) {
+      setError('Elige una categoría para tu live')
+      setIsLoading(false)
+      return
+    }
+
     const file = fileRef.current?.files?.[0]
     if (!file) {
       setError('La portada del live es requerida')
@@ -129,6 +142,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
       context:                storeId ? 'STORE' : 'SELLER_PROFILE',
       storeId:                storeId ?? undefined,
       thumbnailUrl:           upload.url,
+      categoryId,
     })
 
     if (!result.ok) {
@@ -189,6 +203,21 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
           placeholder="Ej. Liquidación de verano · Ropa Premium"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Live category */}
+      <div className="px-5 mt-7 reveal d2">
+        <span id={`live-category-label${idSuffix}`} className="store-form-label">
+          Categoría
+        </span>
+        <LiveCategoryPicker
+          categories={liveCategories}
+          selectedId={categoryId}
+          onSelect={setCategoryId}
+          idSuffix={idSuffix}
+          labelledBy={`live-category-label${idSuffix}`}
           disabled={isLoading}
         />
       </div>
@@ -458,7 +487,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
           <button
             className="live-start-btn"
             onClick={handleStart}
-            disabled={!title.trim() || !thumbnailPreview || isLoading}
+            disabled={!canStart}
           >
             {isLoading ? 'Creando sesión...' : '🚀 Iniciar Live Ahora'}
           </button>
@@ -485,7 +514,7 @@ export function GoLiveSetupScreen({ storeId, products, categories }: Props) {
             <button
               className="live-start-btn"
               onClick={handleStart}
-              disabled={!title.trim() || !thumbnailPreview || isLoading}
+              disabled={!canStart}
             >
               {isLoading ? 'Creando sesión...' : '🚀 Iniciar Live Ahora'}
             </button>

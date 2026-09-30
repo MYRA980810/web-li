@@ -436,6 +436,14 @@ input  { font-family: inherit; }
 .buyer-lives-expand-bar.expanded { background: rgba(255,255,255,0.03); border-color: var(--line-strong); color: var(--ink-2); }
 .buyer-lives-expand-chevron { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; background: rgba(0,0,0,0.3); color: var(--ink-1); flex-shrink: 0; }
 
+/* ===== Live Category Picker (seller live forms) ===== */
+.live-category-option { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 12px 4px 10px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); text-align: center; transition: background .2s, border-color .2s, box-shadow .2s; }
+.live-category-option:disabled { opacity: 0.6; cursor: not-allowed; }
+.live-category-option:hover:not(:disabled) { background: rgba(255,255,255,0.06); border-color: var(--line-strong); }
+.live-category-option:focus-visible { outline: 2px solid var(--lives-tint, #ff3d96); outline-offset: 2px; }
+.live-category-option.selected { background: linear-gradient(160deg, color-mix(in srgb, var(--lives-tint, #ff3d96) 20%, transparent) 0%, color-mix(in srgb, var(--lives-tint, #ff3d96) 6%, transparent) 100%); border-color: color-mix(in srgb, var(--lives-tint, #ff3d96) 65%, transparent); box-shadow: 0 0 20px -6px color-mix(in srgb, var(--lives-tint, #ff3d96) 55%, transparent); }
+.live-category-option-icon { display: flex; align-items: center; justify-content: center; border-radius: 13px; background: color-mix(in srgb, var(--lives-tint, #ff3d96) 16%, transparent); color: var(--lives-tint, #ff3d96); }
+
 /* ===== Store Welcome ===== */
 .store-welcome-hero { position: relative; border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--line); min-height: 200px; display: flex; align-items: center; justify-content: center; }
 .store-welcome-hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 25%, rgba(255,31,135,0.30) 0%, transparent 55%), radial-gradient(ellipse at 85% 80%, rgba(139,92,246,0.22) 0%, transparent 50%), radial-gradient(ellipse at 15% 75%, rgba(34,211,238,0.10) 0%, transparent 45%), linear-gradient(135deg, #0f0a18 0%, #080514 100%); }

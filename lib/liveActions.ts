@@ -21,6 +21,7 @@ export type LiveResponse = {
   displayDurationSeconds: number
   createdAt: string
   ivsPlaybackUrl: string | null
+  categoryId: string | null
 }
 
 // ─── createLive ───────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ export async function createLive(input: CreateLiveInput): Promise<CreateLiveResu
         storeId:                parsed.data.storeId ?? null,
         title:                  parsed.data.title,
         displayDurationSeconds: parsed.data.displayDurationSeconds,
+        categoryId:             parsed.data.categoryId,
         ...(parsed.data.scheduledAt  ? { scheduledAt: parsed.data.scheduledAt } : {}),
         ...(parsed.data.thumbnailUrl ? { thumbnailUrl: parsed.data.thumbnailUrl } : {}),
       }),

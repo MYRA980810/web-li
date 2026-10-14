@@ -1,7 +1,8 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { setSessionCookie, setRefreshTokenCookie, extractRefreshTokenFromSetCookie, clearSessionCookies, getRefreshToken } from './session'
+import { setSessionCookie, setRefreshTokenCookie, clearSessionCookies, getRefreshToken } from './session'
+import { extractRefreshTokenFromSetCookie } from './auth/refreshCore'
 import {
   registerSchema,
   verifyOtpSchema,
@@ -28,7 +29,7 @@ export type ActionResult =
   | { ok: false; error: string }
 
 async function storeRefreshToken(res: Response): Promise<void> {
-  const raw = extractRefreshTokenFromSetCookie(res)
+  const raw = extractRefreshTokenFromSetCookie(res.headers)
   if (raw) await setRefreshTokenCookie(raw)
 }
 

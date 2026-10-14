@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers'
-
-const API = process.env.API_URL ?? 'http://localhost:8080'
+import { refreshWithSingleFlight } from './auth/refreshCore'
 
 export type SessionPayload = {
   sub: string
@@ -56,61 +55,24 @@ export async function getSessionPayload(): Promise<SessionPayload | null> {
   }
 }
 
-// Extracts the raw refresh_token value from a Spring Boot Set-Cookie header.
-export function extractRefreshTokenFromSetCookie(res: Response): string | null {
-  try {
-    // Prefer getSetCookie() — handles multiple Set-Cookie headers correctly
-    const h = res.headers as Headers & { getSetCookie?: () => string[] }
-    if (typeof h.getSetCookie === 'function') {
-      for (const cookie of h.getSetCookie()) {
-        const match = cookie.match(/^refresh_token=([^;]+)/)
-        if (match?.[1]) return match[1]
-      }
-    }
-    // Fallback: get('set-cookie') returns a single string (possibly comma-joined)
-    const raw = res.headers.get('set-cookie')
-    if (raw) {
-      const match = raw.match(/(?:^|,\s*)refresh_token=([^;,\s]+)/)
-      if (match?.[1]) return match[1]
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
 // Silently refreshes the access token using the stored refresh_token.
 // Returns the new access token on success, null on failure (caller should redirect to login).
 export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = await getRefreshToken()
   if (!refreshToken) return null
 
-  try {
-    const res = await fetch(`${API}/api/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        Cookie: `refresh_token=${refreshToken}`,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    })
-
-    if (!res.ok) {
-      try { await clearSessionCookies() } catch { /* read-only cookie context */ }
-      return null
-    }
-
-    const data = (await res.json()) as { accessToken: string }
-
-    // cookies().set() throws in Server Component renders (read-only context).
-    // Wrap so the token is still returned for the current request's retry.
-    try {
-      await setSessionCookie(data.accessToken)
-      const newRaw = extractRefreshTokenFromSetCookie(res)
-      if (newRaw) await setRefreshTokenCookie(newRaw)
-    } catch { /* Server Component context — cookies are read-only */ }
-
-    return data.accessToken
-  } catch {
+  const result = await refreshWithSingleFlight(refreshToken)
+  if (result.kind !== 'ok') {
+    try { await clearSessionCookies() } catch { /* read-only cookie context */ }
     return null
   }
+
+  // cookies().set() throws in Server Component renders (read-only context).
+  // Wrap so the token is still returned for the current request's retry.
+  try {
+    await setSessionCookie(result.accessToken)
+    if (result.refreshToken) await setRefreshTokenCookie(result.refreshToken)
+  } catch { /* Server Component context — cookies are read-only */ }
+
+  return result.accessToken
 }

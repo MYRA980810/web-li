@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { type NextRequest } from 'next/server'
-import { setSessionCookie, setRefreshTokenCookie, extractRefreshTokenFromSetCookie } from '@/lib/session'
+import { setSessionCookie, setRefreshTokenCookie } from '@/lib/session'
+import { extractRefreshTokenFromSetCookie } from '@/lib/auth/refreshCore'
 
 const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!res.ok) redirect('/login?error=oauth_failed')
     const data = await res.json()
     accessToken = data.accessToken
-    refreshToken = extractRefreshTokenFromSetCookie(res)
+    refreshToken = extractRefreshTokenFromSetCookie(res.headers)
   } catch {
     redirect('/login?error=oauth_failed')
   }

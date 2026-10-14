@@ -11,7 +11,14 @@ export const PATHNAME_HEADER = 'x-pathname'
 export const REFRESH_HOP_COOKIE = 'rr_hop'
 export const MAX_REFRESH_HOPS = 2
 
+/** Refresh this long before `exp` so requests rarely reach the backend with an expiring token. */
+export const REFRESH_SKEW_MS = 60_000
+
+export type RefreshStage = 'fresh' | 'proactive' | 'expired'
+
 export type RefreshRequestInfo = {
+  /** False inside the proactive window: the current token is still usable. */
+  expired: boolean
   method: string
   /** True when the request carries the `next-action` header (Server Function POST). */
   isServerAction: boolean
@@ -36,7 +43,7 @@ function isNavigation(req: RefreshRequestInfo): boolean {
   return !req.isServerAction && (req.method === 'GET' || req.method === 'HEAD')
 }
 
-/** Decision for a request whose session token is expired, given the refresh outcome. */
+/** Decision for a request whose session token is due for refresh, given the refresh outcome. */
 export function decideAfterRefresh(result: RefreshResult, req: RefreshRequestInfo): SessionDecision {
   if (result.kind === 'ok') {
     return result.refreshToken
@@ -46,7 +53,7 @@ export function decideAfterRefresh(result: RefreshResult, req: RefreshRequestInf
   if (result.kind === 'invalid') return { type: 'logout' }
 
   // Retryable: another caller most likely rotated the refresh token already.
-  if (!isNavigation(req)) return { type: 'continue' }
+  if (!req.expired || !isNavigation(req)) return { type: 'continue' }
   if (req.hop >= MAX_REFRESH_HOPS) return { type: 'logout' }
   return { type: 'retry-redirect', hop: req.hop + 1 }
 }
@@ -62,11 +69,18 @@ export function parseJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-/** Whether the middleware refreshes this session token (decoded locally, no signature check). */
-export function isRefreshDue(token: string, nowMs: number): boolean {
+/** Session token lifecycle stage, decoded locally (no signature check). */
+export function refreshStage(token: string, nowMs: number): RefreshStage {
   const exp = parseJwtPayload(token)?.exp
-  if (typeof exp !== 'number') return true
-  return nowMs >= exp * 1000
+  if (typeof exp !== 'number') return 'expired'
+  const expMs = exp * 1000
+  if (nowMs >= expMs) return 'expired'
+  return nowMs >= expMs - REFRESH_SKEW_MS ? 'proactive' : 'fresh'
+}
+
+/** Whether the middleware refreshes this session token. */
+export function isRefreshDue(token: string, nowMs: number): boolean {
+  return refreshStage(token, nowMs) !== 'fresh'
 }
 
 export function buildReturnPath(url: { pathname: string; search: string }): string {

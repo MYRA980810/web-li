@@ -4,8 +4,10 @@ import {
   buildReturnPath,
   decideAfterRefresh,
   parseHop,
+  parseJwtPayload,
   PATHNAME_HEADER,
   REFRESH_HOP_COOKIE,
+  refreshStage,
 } from '@/lib/auth/sessionDecision'
 
 const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
@@ -18,29 +20,12 @@ const ROLE_PREFIXES: { prefixes: string[]; role: string }[] = [
   { prefixes: BUYER_PREFIXES, role: 'BUYER' },
 ]
 
-function parseJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const part = token.split('.')[1]
-    const base64 = part.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-    return JSON.parse(atob(padded)) as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
-
 // Gives a concurrent winner's Set-Cookie time to land before the browser retries.
 const RETRY_REDIRECT_DELAY_MS = 300
 
 function getJwtRole(token: string): string | null {
   const payload = parseJwtPayload(token)
   return typeof payload?.role === 'string' ? payload.role : null
-}
-
-function isTokenExpired(token: string): boolean {
-  const payload = parseJwtPayload(token)
-  if (typeof payload?.exp !== 'number') return true
-  return Date.now() >= payload.exp * 1000
 }
 
 // Lets a Server Component render redirect back to this URL (see fetchWithAuth).
@@ -61,7 +46,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (AUTH_ROUTES.includes(pathname) && hasSession) {
-    if (isTokenExpired(sessionToken!)) {
+    if (refreshStage(sessionToken!, Date.now()) === 'expired') {
       const response = NextResponse.next()
       response.cookies.delete('session')
       response.cookies.delete('refresh_token')
@@ -79,16 +64,21 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
 
-    if (isTokenExpired(sessionToken!)) {
-      const refreshToken = req.cookies.get('refresh_token')?.value
-      if (!refreshToken) {
-        const res = NextResponse.redirect(new URL('/login', req.url))
-        res.cookies.delete('session')
-        return res
-      }
+    const stage = refreshStage(sessionToken!, Date.now())
+    const refreshToken = req.cookies.get('refresh_token')?.value
+    if (stage === 'expired' && !refreshToken) {
+      const res = NextResponse.redirect(new URL('/login', req.url))
+      res.cookies.delete('session')
+      return res
+    }
+
+    // Expired, or inside the proactive window (exp - 60s): refresh here, the
+    // only place that can both forward the new tokens and persist them.
+    if (stage !== 'fresh' && refreshToken) {
 
       const result = await refreshWithSingleFlight(refreshToken)
       const decision = decideAfterRefresh(result, {
+        expired: stage === 'expired',
         method: req.method,
         isServerAction: req.headers.has('next-action'),
         hop: parseHop(req.cookies.get(REFRESH_HOP_COOKIE)?.value),
@@ -152,8 +142,9 @@ export async function middleware(req: NextRequest) {
         if (req.cookies.has(REFRESH_HOP_COOKIE)) response.cookies.delete(REFRESH_HOP_COOKIE)
         return response
       }
-      // 'continue': retryable refresh on a non-navigation request (e.g. a Server
-      // Function POST) — let it through; the action surfaces a retry signal.
+      // 'continue': retryable refresh while the token is still valid, or on a
+      // non-navigation request (e.g. a Server Function POST) — let it through;
+      // the action surfaces a retry signal if the token is really expired.
     }
 
     const role = getJwtRole(sessionToken!)

@@ -1,14 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const cookieJar = new Map<string, string>()
+// Mirrors Next: cookies() is only writable in Server Functions / Route Handlers.
+let renderContext = false
+function assertWritable() {
+  if (renderContext) throw new Error('Cookies can only be modified in a Server Action or Route Handler.')
+}
 const cookieStore = {
   get: vi.fn((name: string) => (cookieJar.has(name) ? { name, value: cookieJar.get(name)! } : undefined)),
-  set: vi.fn((name: string, value: string) => { cookieJar.set(name, value) }),
-  delete: vi.fn((name: string) => { cookieJar.delete(name) }),
+  set: vi.fn((name: string, value: string) => { assertWritable(); cookieJar.set(name, value) }),
+  delete: vi.fn((name: string) => { assertWritable(); cookieJar.delete(name) }),
 }
+const requestHeaders = new Headers()
 
 vi.mock('next/headers', () => ({
   cookies: async () => cookieStore,
+  headers: async () => requestHeaders,
 }))
 
 class RedirectSignal extends Error {
@@ -36,6 +43,8 @@ function tokenExpired(): Response {
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
+  renderContext = false
+  requestHeaders.delete('x-pathname')
   cookieJar.clear()
   cookieJar.set('session', 'at-old')
   cookieJar.set('refresh_token', 'rt-old')
@@ -98,5 +107,62 @@ describe('fetchWithAuth in an action context', () => {
     expect(redirectMock).toHaveBeenCalledWith('/login')
     expect(cookieJar.has('session')).toBe(false)
     expect(cookieJar.has('refresh_token')).toBe(false)
+  })
+})
+
+function jwtExpiringIn(seconds: number): string {
+  const exp = Math.floor(Date.now() / 1000) + seconds
+  return `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ sub: 'u1', exp })).toString('base64url')}.sig`
+}
+
+describe('fetchWithAuth during a Server Component render', () => {
+  beforeEach(() => {
+    renderContext = true
+  })
+
+  it('never calls the refresh endpoint and redirects to the same path for the middleware to refresh', async () => {
+    const expired = jwtExpiringIn(-5)
+    cookieJar.set('session', expired)
+    requestHeaders.set('x-pathname', '/buyer/lives?cat=a')
+    fetchMock.mockResolvedValue(tokenExpired())
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, expired)).rejects.toBeInstanceOf(RedirectSignal)
+
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(redirectMock).toHaveBeenCalledWith('/buyer/lives?cat=a')
+    expect(cookieJar.get('refresh_token')).toBe('rt-old')
+  })
+
+  it('logs out when the path is not covered by the middleware (no x-pathname)', async () => {
+    const expired = jwtExpiringIn(-5)
+    cookieJar.set('session', expired)
+    fetchMock.mockResolvedValue(tokenExpired())
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, expired)).rejects.toBeInstanceOf(RedirectSignal)
+
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(redirectMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('logs out instead of looping when the middleware would not refresh this token', async () => {
+    const notDue = jwtExpiringIn(3600)
+    cookieJar.set('session', notDue)
+    requestHeaders.set('x-pathname', '/buyer/lives')
+    fetchMock.mockResolvedValue(tokenExpired())
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, notDue)).rejects.toBeInstanceOf(RedirectSignal)
+
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(redirectMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('ignores an unsafe x-pathname', async () => {
+    const expired = jwtExpiringIn(-5)
+    cookieJar.set('session', expired)
+    requestHeaders.set('x-pathname', '//evil.test/')
+    fetchMock.mockResolvedValue(tokenExpired())
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, expired)).rejects.toBeInstanceOf(RedirectSignal)
+    expect(redirectMock).toHaveBeenCalledWith('/login')
   })
 })

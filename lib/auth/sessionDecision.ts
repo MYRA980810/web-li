@@ -1,6 +1,12 @@
 // Pure middleware decisions for the session refresh flow (no Next imports, unit-testable).
 import type { RefreshResult } from './refreshCore'
 
+/**
+ * Internal request header the middleware sets (pathname + search) on the paths
+ * it processes, so a Server Component render can redirect back to itself.
+ */
+export const PATHNAME_HEADER = 'x-pathname'
+
 /** Short-lived counter cookie that bounds retry redirects on GET navigations. */
 export const REFRESH_HOP_COOKIE = 'rr_hop'
 export const MAX_REFRESH_HOPS = 2
@@ -43,4 +49,35 @@ export function decideAfterRefresh(result: RefreshResult, req: RefreshRequestInf
   if (!isNavigation(req)) return { type: 'continue' }
   if (req.hop >= MAX_REFRESH_HOPS) return { type: 'logout' }
   return { type: 'retry-redirect', hop: req.hop + 1 }
+}
+
+export function parseJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const part = token.split('.')[1]
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    return JSON.parse(atob(padded)) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/** Whether the middleware refreshes this session token (decoded locally, no signature check). */
+export function isRefreshDue(token: string, nowMs: number): boolean {
+  const exp = parseJwtPayload(token)?.exp
+  if (typeof exp !== 'number') return true
+  return nowMs >= exp * 1000
+}
+
+export function buildReturnPath(url: { pathname: string; search: string }): string {
+  const params = new URLSearchParams(url.search)
+  params.delete('_rsc')
+  const search = params.toString()
+  return search ? `${url.pathname}?${search}` : url.pathname
+}
+
+/** Accepts only same-origin relative paths; anything else yields null. */
+export function safeReturnPath(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return null
+  return raw
 }

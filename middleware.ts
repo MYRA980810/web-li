@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refreshWithSingleFlight } from '@/lib/auth/refreshCore'
-import { decideAfterRefresh, parseHop, REFRESH_HOP_COOKIE } from '@/lib/auth/sessionDecision'
+import {
+  buildReturnPath,
+  decideAfterRefresh,
+  parseHop,
+  PATHNAME_HEADER,
+  REFRESH_HOP_COOKIE,
+} from '@/lib/auth/sessionDecision'
 
 const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
 
@@ -35,6 +41,14 @@ function isTokenExpired(token: string): boolean {
   const payload = parseJwtPayload(token)
   if (typeof payload?.exp !== 'number') return true
   return Date.now() >= payload.exp * 1000
+}
+
+// Lets a Server Component render redirect back to this URL (see fetchWithAuth).
+// Always overwritten, so a client-supplied value never reaches the render.
+function withPathnameHeader(req: NextRequest): Headers {
+  const headers = new Headers(req.headers)
+  headers.set(PATHNAME_HEADER, buildReturnPath(req.nextUrl))
+  return headers
 }
 
 export async function middleware(req: NextRequest) {
@@ -113,7 +127,7 @@ export async function middleware(req: NextRequest) {
         if (decision.refreshToken) {
           updatedCookieParts.push(`refresh_token=${decision.refreshToken}`)
         }
-        const requestHeaders = new Headers(req.headers)
+        const requestHeaders = withPathnameHeader(req)
         requestHeaders.set('cookie', updatedCookieParts.join('; '))
 
         const response = NextResponse.next({ request: { headers: requestHeaders } })
@@ -148,7 +162,9 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  const response = NextResponse.next()
+  const response = matchedRole
+    ? NextResponse.next({ request: { headers: withPathnameHeader(req) } })
+    : NextResponse.next()
   // A retry redirect that landed with a usable session: reset the hop budget.
   if (req.cookies.has(REFRESH_HOP_COOKIE)) response.cookies.delete(REFRESH_HOP_COOKIE)
   return response

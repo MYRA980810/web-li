@@ -1,4 +1,5 @@
 import { isSessionRetryResult } from './sessionRetry'
+import { sessionRetryLoginPath } from './sessionDecision'
 
 const MAX_ATTEMPTS = 3
 const BASE_DELAY_MS = 500
@@ -11,8 +12,11 @@ export type WithSessionRetryOptions = {
   random?: () => number
 }
 
+// The middleware keeps refresh_token on /login (only an `invalid` refresh may
+// delete it), so the next protected navigation can still recover the session.
 function goToLogin(): void {
-  window.location.assign('/login')
+  const { pathname, search } = window.location
+  window.location.assign(sessionRetryLoginPath(`${pathname}${search}`))
 }
 
 /**

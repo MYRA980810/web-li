@@ -10,6 +10,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe('withSessionRetry', () => {
@@ -66,5 +67,17 @@ describe('withSessionRetry', () => {
     await expect(promise).resolves.toEqual(sessionRetryResult())
     expect(fn).toHaveBeenCalledTimes(3)
     expect(onSessionLost).toHaveBeenCalledTimes(1)
+  })
+
+  it('by default sends the user to /login with the current path and the retry reason', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('window', { location: { pathname: '/buyer/lives', search: '?cat=a', assign } })
+    const fn = vi.fn<() => Promise<Result>>().mockResolvedValue(sessionRetryResult())
+
+    const promise = withSessionRetry(fn, { random: () => 0 })
+    await vi.advanceTimersByTimeAsync(5000)
+    await promise
+
+    expect(assign).toHaveBeenCalledWith('/login?reason=session-retry&next=%2Fbuyer%2Flives%3Fcat%3Da')
   })
 })

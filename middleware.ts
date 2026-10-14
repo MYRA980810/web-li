@@ -3,11 +3,13 @@ import { refreshWithSingleFlight } from '@/lib/auth/refreshCore'
 import {
   buildReturnPath,
   decideAfterRefresh,
+  isDocumentRequest,
   parseHop,
   parseJwtPayload,
   PATHNAME_HEADER,
   REFRESH_HOP_COOKIE,
   refreshStage,
+  sessionRetryLoginPath,
 } from '@/lib/auth/sessionDecision'
 
 const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
@@ -47,9 +49,10 @@ export async function middleware(req: NextRequest) {
 
   if (AUTH_ROUTES.includes(pathname) && hasSession) {
     if (refreshStage(sessionToken!, Date.now()) === 'expired') {
+      // Keep refresh_token: only an `invalid` refresh result may delete it, so
+      // the next protected navigation can still recover the session.
       const response = NextResponse.next()
       response.cookies.delete('session')
-      response.cookies.delete('refresh_token')
       return response
     }
     return NextResponse.redirect(new URL('/', req.url))
@@ -60,12 +63,13 @@ export async function middleware(req: NextRequest) {
   )
 
   if (matchedRole) {
-    if (!hasSession) {
+    const refreshToken = req.cookies.get('refresh_token')?.value
+    if (!hasSession && !refreshToken) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
 
-    const stage = refreshStage(sessionToken!, Date.now())
-    const refreshToken = req.cookies.get('refresh_token')?.value
+    // A missing session with a refresh token present is refreshed like an expired one.
+    const stage = sessionToken ? refreshStage(sessionToken, Date.now()) : 'expired'
     if (stage === 'expired' && !refreshToken) {
       const res = NextResponse.redirect(new URL('/login', req.url))
       res.cookies.delete('session')
@@ -81,6 +85,7 @@ export async function middleware(req: NextRequest) {
         expired: stage === 'expired',
         method: req.method,
         isServerAction: req.headers.has('next-action'),
+        isDocument: isDocumentRequest(req.headers),
         hop: parseHop(req.cookies.get(REFRESH_HOP_COOKIE)?.value),
       })
 
@@ -90,6 +95,20 @@ export async function middleware(req: NextRequest) {
         res.cookies.delete('refresh_token')
         res.cookies.delete(REFRESH_HOP_COOKIE)
         return res
+      }
+
+      if (decision.type === 'session-retry-login') {
+        // Transient failures only: refresh_token stays so a later navigation can recover.
+        const res = NextResponse.redirect(new URL(sessionRetryLoginPath(buildReturnPath(req.nextUrl)), req.url))
+        res.cookies.delete('session')
+        res.cookies.delete(REFRESH_HOP_COOKIE)
+        return res
+      }
+
+      if (decision.type === 'defer-to-document') {
+        // A non-RSC / non-2xx answer makes the client router fall back to a
+        // document navigation, which owns the hop budget. Prefetches just fail.
+        return new NextResponse(null, { status: 503, headers: { 'Cache-Control': 'no-store' } })
       }
 
       if (decision.type === 'retry-redirect') {
@@ -112,7 +131,8 @@ export async function middleware(req: NextRequest) {
         const updatedCookieParts = (req.headers.get('cookie') ?? '')
           .split(';')
           .map((c) => c.trim())
-          .filter((c) => !c.startsWith('session=') && !c.startsWith('refresh_token='))
+          // Keep the current refresh_token when the backend did not rotate it.
+          .filter((c) => !c.startsWith('session=') && !(decision.refreshToken && c.startsWith('refresh_token=')))
           .concat([`session=${decision.accessToken}`])
         if (decision.refreshToken) {
           updatedCookieParts.push(`refresh_token=${decision.refreshToken}`)
@@ -147,8 +167,7 @@ export async function middleware(req: NextRequest) {
       // the action surfaces a retry signal if the token is really expired.
     }
 
-    const role = getJwtRole(sessionToken!)
-    if (role !== matchedRole.role) {
+    if (sessionToken && getJwtRole(sessionToken) !== matchedRole.role) {
       return NextResponse.redirect(new URL('/', req.url))
     }
   }

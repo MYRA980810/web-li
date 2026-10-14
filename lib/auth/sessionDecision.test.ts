@@ -2,19 +2,22 @@ import { describe, expect, it } from 'vitest'
 import {
   buildReturnPath,
   decideAfterRefresh,
+  isDocumentRequest,
   isRefreshDue,
   MAX_REFRESH_HOPS,
   parseHop,
   refreshStage,
   safeReturnPath,
+  sessionRetryLoginPath,
 } from './sessionDecision'
 
 const ok = { kind: 'ok', accessToken: 'at-new', refreshToken: 'rt-new' } as const
 const retry = { kind: 'retry' } as const
 const invalid = { kind: 'invalid' } as const
 
-const navigation = (hop = 0, expired = true) => ({ method: 'GET', isServerAction: false, hop, expired })
-const serverAction = { method: 'POST', isServerAction: true, hop: 0, expired: true }
+const navigation = (hop = 0, expired = true) => ({ method: 'GET', isServerAction: false, isDocument: true, hop, expired })
+const serverAction = { method: 'POST', isServerAction: true, isDocument: false, hop: 0, expired: true }
+const rscFetch = (hop = 0) => ({ method: 'GET', isServerAction: false, isDocument: false, hop, expired: true })
 
 describe('decideAfterRefresh (expired token)', () => {
   it('ok → forwards the refreshed tokens', () => {
@@ -33,12 +36,17 @@ describe('decideAfterRefresh (expired token)', () => {
     expect(decideAfterRefresh(retry, navigation(1))).toEqual({ type: 'retry-redirect', hop: 2 })
   })
 
-  it(`retry on a GET navigation with hop ${MAX_REFRESH_HOPS} → logs out`, () => {
-    expect(decideAfterRefresh(retry, navigation(MAX_REFRESH_HOPS))).toEqual({ type: 'logout' })
+  it(`retry on a GET navigation with hop ${MAX_REFRESH_HOPS} → login without deleting the refresh token`, () => {
+    expect(decideAfterRefresh(retry, navigation(MAX_REFRESH_HOPS))).toEqual({ type: 'session-retry-login' })
+  })
+
+  it('retry on an RSC/prefetch fetch defers to a document navigation without consuming hops', () => {
+    expect(decideAfterRefresh(retry, rscFetch(0))).toEqual({ type: 'defer-to-document' })
+    expect(decideAfterRefresh(retry, rscFetch(MAX_REFRESH_HOPS))).toEqual({ type: 'defer-to-document' })
   })
 
   it('retry on a HEAD request behaves like a navigation', () => {
-    expect(decideAfterRefresh(retry, { method: 'HEAD', isServerAction: false, hop: 0, expired: true })).toEqual({
+    expect(decideAfterRefresh(retry, { method: 'HEAD', isServerAction: false, isDocument: true, hop: 0, expired: true })).toEqual({
       type: 'retry-redirect',
       hop: 1,
     })
@@ -66,6 +74,7 @@ describe('decideAfterRefresh (proactive window, token still valid)', () => {
 
   it('retry never counts against the hop budget', () => {
     expect(decideAfterRefresh(retry, navigation(MAX_REFRESH_HOPS, false))).toEqual({ type: 'continue' })
+    expect(decideAfterRefresh(retry, { ...rscFetch(), expired: false })).toEqual({ type: 'continue' })
   })
 
   it('invalid → logs out', () => {
@@ -157,5 +166,35 @@ describe('safeReturnPath', () => {
     ['buyer', null],
   ])('%s → %s', (raw, expected) => {
     expect(safeReturnPath(raw)).toBe(expected)
+  })
+})
+
+describe('isDocumentRequest', () => {
+  it('is true for a browser document navigation', () => {
+    expect(isDocumentRequest(new Headers({ 'sec-fetch-dest': 'document' }))).toBe(true)
+  })
+
+  it('is true when no fetch metadata is sent', () => {
+    expect(isDocumentRequest(new Headers())).toBe(true)
+  })
+
+  it.each([
+    [{ rsc: '1' }],
+    [{ 'next-router-prefetch': '1' }],
+    [{ 'next-router-segment-prefetch': '/_tree' }],
+    [{ 'sec-fetch-dest': 'empty' }],
+  ])('is false for %o', (init) => {
+    expect(isDocumentRequest(new Headers(init))).toBe(false)
+  })
+})
+
+describe('sessionRetryLoginPath', () => {
+  it('carries a safe next path', () => {
+    expect(sessionRetryLoginPath('/buyer/lives?cat=a')).toBe('/login?reason=session-retry&next=%2Fbuyer%2Flives%3Fcat%3Da')
+  })
+
+  it('drops an unsafe next path', () => {
+    expect(sessionRetryLoginPath('//evil.test/')).toBe('/login?reason=session-retry')
+    expect(sessionRetryLoginPath(null)).toBe('/login?reason=session-retry')
   })
 })

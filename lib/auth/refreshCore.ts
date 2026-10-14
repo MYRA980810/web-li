@@ -31,6 +31,13 @@ export function extractRefreshTokenFromSetCookie(headers: Headers): string | nul
   }
 }
 
+/** Upper bound for the refresh call, body read included. A hung backend must not pin the single-flight entry. */
+export const REFRESH_TIMEOUT_MS = 5_000
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
+}
+
 function isRetryableStatus(status: number): boolean {
   return status === 409 || status === 408 || status === 429 || status >= 500
 }
@@ -40,7 +47,10 @@ export async function classifyRefreshResponse(res: Response): Promise<RefreshRes
     let accessToken: unknown
     try {
       accessToken = ((await res.json()) as { accessToken?: unknown }).accessToken
-    } catch { /* malformed body */ }
+    } catch (err) {
+      // A timed-out body read is transient; only a malformed body is invalid.
+      if (isAbortError(err)) throw err
+    }
     // The backend already consumed the old refresh token, so a 200 we cannot
     // use is not retryable — retrying would replay a consumed token.
     if (typeof accessToken !== 'string' || accessToken === '') return { kind: 'invalid' }
@@ -52,19 +62,25 @@ export async function classifyRefreshResponse(res: Response): Promise<RefreshRes
 
 async function requestRefresh(refreshToken: string): Promise<RefreshResult> {
   const api = process.env.API_URL ?? 'http://localhost:8080'
-  let res: Response
+  // AbortController + setTimeout (not AbortSignal.timeout) so tests can drive it with fake timers.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS)
   try {
-    res = await fetch(`${api}/api/auth/refresh`, {
+    const res = await fetch(`${api}/api/auth/refresh`, {
       method: 'POST',
       headers: {
         Cookie: `refresh_token=${refreshToken}`,
         'X-Requested-With': 'XMLHttpRequest',
       },
+      signal: controller.signal,
     })
+    return await classifyRefreshResponse(res)
   } catch {
+    // Network error, timeout or aborted body read: nothing usable was received.
     return { kind: 'retry' }
+  } finally {
+    clearTimeout(timer)
   }
-  return classifyRefreshResponse(res)
 }
 
 // Per-instance single-flight, keyed by a hash so raw refresh tokens are not

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   classifyRefreshResponse,
+  REFRESH_TIMEOUT_MS,
   extractRefreshTokenFromSetCookie,
   pendingRefreshCount,
   refreshWithSingleFlight,
@@ -53,6 +54,12 @@ describe('classifyRefreshResponse', () => {
 
   it.each([500, 502, 503, 504])('%i is retryable', async (status) => {
     await expect(classifyRefreshResponse(jsonResponse(status, {}))).resolves.toEqual({ kind: 'retry' })
+  })
+
+  it('rethrows an aborted body read instead of classifying it as invalid', async () => {
+    const res = new Response(null, { status: 200 })
+    vi.spyOn(res, 'json').mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'))
+    await expect(classifyRefreshResponse(res)).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it.each([400, 401, 403])('%i is invalid', async (status) => {
@@ -115,6 +122,32 @@ describe('refreshWithSingleFlight', () => {
     await expect(refreshWithSingleFlight('rt-settle')).resolves.toEqual({ kind: 'ok', accessToken: 'at-later' })
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(pendingRefreshCount()).toBe(0)
+  })
+
+  it('a hung refresh times out as retry and frees the single-flight entry', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn((_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+        }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const first = refreshWithSingleFlight('rt-hung')
+      const joined = refreshWithSingleFlight('rt-hung')
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      expect(pendingRefreshCount()).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(REFRESH_TIMEOUT_MS)
+
+      await expect(first).resolves.toEqual({ kind: 'retry' })
+      await expect(joined).resolves.toEqual({ kind: 'retry' })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(pendingRefreshCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('different refresh tokens use separate fetches', async () => {

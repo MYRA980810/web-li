@@ -92,6 +92,9 @@ export function LiveExplorerScreen({
   const [activeLoading, setActiveLoading] = useState(false)
   const [activeError, setActiveError] = useState(initialActiveError)
   const activeLoadingRef = useRef(false)
+  // Bumped when a realtime refresh replaces the active feed, so an in-flight
+  // loadMore does not append page N+1 onto a list that restarted at page 0.
+  const activeResetRef = useRef(0)
 
   const [upcomingItems, setUpcomingItems] = useState(initialUpcoming.content)
   const [upcomingTotal, setUpcomingTotal] = useState(initialUpcoming.totalElements)
@@ -104,13 +107,14 @@ export function LiveExplorerScreen({
   const loadMoreActive = useCallback(async () => {
     if (activeLoadingRef.current || !activeHasMore) return
     const gen = activeGenRef.current
+    const reset = activeResetRef.current
     activeLoadingRef.current = true
     setActiveLoading(true)
     const result = await getActiveLives(activePage + 1, PAGE_SIZE, categoryIdRef.current)
     activeLoadingRef.current = false
     setActiveLoading(false)
-    // A category switch happened meanwhile — this page belongs to the old feed.
-    if (gen !== activeGenRef.current) return
+    // A category switch or realtime refresh happened meanwhile — this page belongs to the old list.
+    if (gen !== activeGenRef.current || reset !== activeResetRef.current) return
     if (result.ok) {
       setActiveItems((prev) => [...prev, ...result.page.content])
       setActiveTotal(result.page.totalElements)
@@ -189,18 +193,21 @@ export function LiveExplorerScreen({
     if (activeGen === activeGenRef.current && upcomingGen === upcomingGenRef.current) setSwitching(false)
   }
 
-  // Merges a fresh page-0 fetch into activeItems without disturbing items
-  // already loaded further down via pagination (no dupes, no reordering).
-  // Items from another category are dropped defensively (the backend already filters).
-  const mergeFreshActive = useCallback((fresh: PageResponse<LiveFeedCardResponse>, forCategoryId: string) => {
+  // A fresh page 0 is the source of truth: replacing (not merging) drops cards
+  // whose live-ended event was missed, e.g. during an RTM reconnect. Pagination
+  // restarts at page 0. Items from another category are dropped defensively
+  // (the backend already filters).
+  const replaceActiveFeed = useCallback((fresh: PageResponse<LiveFeedCardResponse>, forCategoryId: string) => {
+    activeResetRef.current++
+    setActiveItems(
+      forCategoryId === ALL_LIVE_CATEGORY.id
+        ? fresh.content
+        : fresh.content.filter((i) => i.categoryId === forCategoryId),
+    )
     setActiveTotal(fresh.totalElements)
-    setActiveItems((prev) => {
-      const existingIds = new Set(prev.map((i) => i.id))
-      const toPrepend = fresh.content.filter(
-        (i) => !existingIds.has(i.id) && (forCategoryId === ALL_LIVE_CATEGORY.id || i.categoryId === forCategoryId),
-      )
-      return toPrepend.length === 0 ? prev : [...toPrepend, ...prev]
-    })
+    setActivePage(fresh.number)
+    setActiveHasMore(!fresh.last)
+    setActiveError(false)
   }, [])
 
   const refreshActiveFeed = useCallback(async () => {
@@ -208,8 +215,8 @@ export function LiveExplorerScreen({
     const forCategoryId = categoryIdRef.current
     const result = await getActiveLives(0, PAGE_SIZE, forCategoryId)
     if (!result.ok || gen !== activeGenRef.current) return
-    mergeFreshActive(result.page, forCategoryId)
-  }, [mergeFreshActive])
+    replaceActiveFeed(result.page, forCategoryId)
+  }, [replaceActiveFeed])
 
   // Debounced so a burst of realtime events triggers a single counts request.
   // On failure the previous counts are kept.

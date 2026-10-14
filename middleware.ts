@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refreshWithSingleFlight } from '@/lib/auth/refreshCore'
+import { decideAfterRefresh, parseHop, REFRESH_HOP_COOKIE } from '@/lib/auth/sessionDecision'
 
 const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
 
@@ -21,6 +22,9 @@ function parseJwtPayload(token: string): Record<string, unknown> | null {
     return null
   }
 }
+
+// Gives a concurrent winner's Set-Cookie time to land before the browser retries.
+const RETRY_REDIRECT_DELAY_MS = 300
 
 function getJwtRole(token: string): string | null {
   const payload = parseJwtPayload(token)
@@ -70,47 +74,72 @@ export async function middleware(req: NextRequest) {
       }
 
       const result = await refreshWithSingleFlight(refreshToken)
-      if (result.kind !== 'ok') {
+      const decision = decideAfterRefresh(result, {
+        method: req.method,
+        isServerAction: req.headers.has('next-action'),
+        hop: parseHop(req.cookies.get(REFRESH_HOP_COOKIE)?.value),
+      })
+
+      if (decision.type === 'logout') {
         const res = NextResponse.redirect(new URL('/login', req.url))
         res.cookies.delete('session')
         res.cookies.delete('refresh_token')
+        res.cookies.delete(REFRESH_HOP_COOKIE)
         return res
       }
 
-      const isProduction = process.env.NODE_ENV === 'production'
-
-      // Update the Cookie header so Server Components see the new token via cookies()
-      const updatedCookieParts = (req.headers.get('cookie') ?? '')
-        .split(';')
-        .map((c) => c.trim())
-        .filter((c) => !c.startsWith('session=') && !c.startsWith('refresh_token='))
-        .concat([`session=${result.accessToken}`])
-      if (result.refreshToken) {
-        updatedCookieParts.push(`refresh_token=${result.refreshToken}`)
+      if (decision.type === 'retry-redirect') {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_REDIRECT_DELAY_MS))
+        const res = NextResponse.redirect(req.nextUrl, 307)
+        res.cookies.set(REFRESH_HOP_COOKIE, String(decision.hop), {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 10,
+        })
+        return res
       }
-      const requestHeaders = new Headers(req.headers)
-      requestHeaders.set('cookie', updatedCookieParts.join('; '))
 
-      const response = NextResponse.next({ request: { headers: requestHeaders } })
+      if (decision.type === 'refreshed') {
+        const isProduction = process.env.NODE_ENV === 'production'
 
-      // Also set on the response so the browser persists the new cookies
-      response.cookies.set('session', result.accessToken, {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7,
-      })
-      if (result.refreshToken) {
-        response.cookies.set('refresh_token', result.refreshToken, {
+        // Update the Cookie header so Server Components see the new token via cookies()
+        const updatedCookieParts = (req.headers.get('cookie') ?? '')
+          .split(';')
+          .map((c) => c.trim())
+          .filter((c) => !c.startsWith('session=') && !c.startsWith('refresh_token='))
+          .concat([`session=${decision.accessToken}`])
+        if (decision.refreshToken) {
+          updatedCookieParts.push(`refresh_token=${decision.refreshToken}`)
+        }
+        const requestHeaders = new Headers(req.headers)
+        requestHeaders.set('cookie', updatedCookieParts.join('; '))
+
+        const response = NextResponse.next({ request: { headers: requestHeaders } })
+
+        // Also set on the response so the browser persists the new cookies
+        response.cookies.set('session', decision.accessToken, {
           httpOnly: true,
           secure: isProduction,
           sameSite: 'lax',
           path: '/',
-          maxAge: 60 * 60 * 24 * 30,
+          maxAge: 60 * 60 * 24 * 7,
         })
+        if (decision.refreshToken) {
+          response.cookies.set('refresh_token', decision.refreshToken, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60 * 60 * 24 * 30,
+          })
+        }
+        if (req.cookies.has(REFRESH_HOP_COOKIE)) response.cookies.delete(REFRESH_HOP_COOKIE)
+        return response
       }
-      return response
+      // 'continue': retryable refresh on a non-navigation request (e.g. a Server
+      // Function POST) — let it through; the action surfaces a retry signal.
     }
 
     const role = getJwtRole(sessionToken!)
@@ -119,7 +148,10 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  return NextResponse.next()
+  const response = NextResponse.next()
+  // A retry redirect that landed with a usable session: reset the hop budget.
+  if (req.cookies.has(REFRESH_HOP_COOKIE)) response.cookies.delete(REFRESH_HOP_COOKIE)
+  return response
 }
 
 export const config = {

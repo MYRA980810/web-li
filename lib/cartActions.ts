@@ -1,6 +1,7 @@
 'use server'
 
 import { API, parseProblemDetail, requireToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import { isSessionRetryError, sessionRetryResult, type SessionRetryResult } from './auth/sessionRetry'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ async function errorFor(res: Response): Promise<string> {
 export type GetCartResult =
   | { ok: true;  cart: CombinedCartResponse }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 export async function getCart(): Promise<GetCartResult> {
   const token = await requireToken()
@@ -64,6 +66,7 @@ export async function getCart(): Promise<GetCartResult> {
     res = await fetchWithAuth(`${API}/api/cart`, { method: 'GET' }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -86,6 +89,7 @@ export type AddToCartResponse = {
 export type AddToCartActionResult =
   | { ok: true;  result: AddToCartResponse }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 export async function addToCart(
   storeId: string,
@@ -104,6 +108,7 @@ export async function addToCart(
     }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -129,6 +134,7 @@ export type ChangeQuantityResponse = {
 export type ChangeQuantityActionResult =
   | { ok: true;  result: ChangeQuantityResponse }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 async function changeQuantity(
   direction: 'increment' | 'decrement',
@@ -150,6 +156,7 @@ async function changeQuantity(
     )
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -182,7 +189,7 @@ export async function decrementCartItem(
 
 // ─── removeCartItem ───────────────────────────────────────────────────────────
 
-export type RemoveCartItemResult = { ok: true } | { ok: false; error: string }
+export type RemoveCartItemResult = { ok: true } | { ok: false; error: string } | SessionRetryResult
 
 export async function removeCartItem(
   storeId: string,
@@ -203,6 +210,7 @@ export async function removeCartItem(
     )
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -221,6 +229,7 @@ export type CheckoutSelection = { storeId: string; productId: string; variantId?
 export type CheckoutCartActionResult =
   | { ok: true;  response: CheckoutCartResponse }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 /** Initiates checkout — creates RESERVED orders per store, never touches
  * payment. Always returns 200 on the happy path; per-store outcomes live in
@@ -237,6 +246,7 @@ export async function checkoutCart(selectedItems: CheckoutSelection[]): Promise<
     }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getLiveSubscriptions, subscribeToLive, unsubscribeFromLive } from '@/lib/liveActions'
+import { withSessionRetry } from '@/lib/auth/withSessionRetry'
 
 export type LiveReminders = {
   isSubscribed: (liveId: string) => boolean
@@ -31,12 +32,12 @@ export function useLiveReminders(liveIds: string[]): LiveReminders {
 
     let cancelled = false
     let settled = false
-    getLiveSubscriptions(missing)
+    withSessionRetry(() => getLiveSubscriptions(missing))
       .then((fetched) => {
         settled = true
-        if (cancelled) return
+        if (cancelled || !fetched.ok) return
         // Local toggles made while the lookup was in flight win over the fetched value.
-        setSubscribed((prev) => ({ ...fetched, ...prev }))
+        setSubscribed((prev) => ({ ...fetched.subscriptions, ...prev }))
       })
       .catch(() => {
         settled = true // lookup failure = not subscribed
@@ -65,7 +66,7 @@ export function useLiveReminders(liveIds: string[]): LiveReminders {
       setPendingOne(liveId, true)
       setOne(liveId, next)
       try {
-        const result = next ? await subscribeToLive(liveId) : await unsubscribeFromLive(liveId)
+        const result = await withSessionRetry(() => (next ? subscribeToLive(liveId) : unsubscribeFromLive(liveId)))
         if (!result.ok) setOne(liveId, !next)
       } catch {
         setOne(liveId, !next)

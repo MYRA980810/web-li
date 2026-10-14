@@ -6,6 +6,7 @@ import { BuyerBottomNav } from '@/components/BuyerBottomNav'
 import { useLivesFeedChannel } from '@/hooks/useLivesFeedChannel'
 import { useLiveReminders } from '@/hooks/useLiveReminders'
 import { ALL_LIVE_CATEGORY, type LiveCategory } from '@/lib/liveCategories'
+import { withSessionRetry } from '@/lib/auth/withSessionRetry'
 import {
   getActiveLiveCounts,
   getActiveLives,
@@ -110,7 +111,7 @@ export function LiveExplorerScreen({
     const reset = activeResetRef.current
     activeLoadingRef.current = true
     setActiveLoading(true)
-    const result = await getActiveLives(activePage + 1, PAGE_SIZE, categoryIdRef.current)
+    const result = await withSessionRetry(() => getActiveLives(activePage + 1, PAGE_SIZE, categoryIdRef.current))
     activeLoadingRef.current = false
     setActiveLoading(false)
     // A category switch or realtime refresh happened meanwhile — this page belongs to the old list.
@@ -130,7 +131,7 @@ export function LiveExplorerScreen({
     const gen = upcomingGenRef.current
     upcomingLoadingRef.current = true
     setUpcomingLoading(true)
-    const result = await getUpcomingLives(upcomingPage + 1, PAGE_SIZE, categoryIdRef.current)
+    const result = await withSessionRetry(() => getUpcomingLives(upcomingPage + 1, PAGE_SIZE, categoryIdRef.current))
     upcomingLoadingRef.current = false
     setUpcomingLoading(false)
     if (gen !== upcomingGenRef.current) return
@@ -156,8 +157,8 @@ export function LiveExplorerScreen({
     setSwitching(true)
 
     const [activeResult, upcomingResult] = await Promise.all([
-      getActiveLives(0, PAGE_SIZE, nextId),
-      getUpcomingLives(0, PAGE_SIZE, nextId),
+      withSessionRetry(() => getActiveLives(0, PAGE_SIZE, nextId)),
+      withSessionRetry(() => getUpcomingLives(0, PAGE_SIZE, nextId)),
     ])
 
     if (activeGen === activeGenRef.current) {
@@ -213,7 +214,7 @@ export function LiveExplorerScreen({
   const refreshActiveFeed = useCallback(async () => {
     const gen = activeGenRef.current
     const forCategoryId = categoryIdRef.current
-    const result = await getActiveLives(0, PAGE_SIZE, forCategoryId)
+    const result = await withSessionRetry(() => getActiveLives(0, PAGE_SIZE, forCategoryId))
     if (!result.ok || gen !== activeGenRef.current) return
     replaceActiveFeed(result.page, forCategoryId)
   }, [replaceActiveFeed])
@@ -225,7 +226,7 @@ export function LiveExplorerScreen({
     if (countsTimerRef.current) clearTimeout(countsTimerRef.current)
     countsTimerRef.current = setTimeout(async () => {
       countsTimerRef.current = null
-      const result = await getActiveLiveCounts()
+      const result = await withSessionRetry(() => getActiveLiveCounts())
       if (result.ok) setCounts(result.counts)
     }, COUNTS_REFRESH_DEBOUNCE_MS)
   }, [])

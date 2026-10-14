@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers'
-import { refreshWithSingleFlight } from './auth/refreshCore'
 
 export type SessionPayload = {
   sub: string
@@ -53,26 +52,4 @@ export async function getSessionPayload(): Promise<SessionPayload | null> {
   } catch {
     return null
   }
-}
-
-// Silently refreshes the access token using the stored refresh_token.
-// Returns the new access token on success, null on failure (caller should redirect to login).
-export async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = await getRefreshToken()
-  if (!refreshToken) return null
-
-  const result = await refreshWithSingleFlight(refreshToken)
-  if (result.kind !== 'ok') {
-    try { await clearSessionCookies() } catch { /* read-only cookie context */ }
-    return null
-  }
-
-  // cookies().set() throws in Server Component renders (read-only context).
-  // Wrap so the token is still returned for the current request's retry.
-  try {
-    await setSessionCookie(result.accessToken)
-    if (result.refreshToken) await setRefreshTokenCookie(result.refreshToken)
-  } catch { /* Server Component context — cookies are read-only */ }
-
-  return result.accessToken
 }

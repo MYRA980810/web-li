@@ -14,6 +14,7 @@ import {
   type CheckoutSelection,
 } from '@/lib/cartActions'
 import { hydrateCartGroups, type StoreInfo } from '@/lib/cartHydration'
+import { withSessionRetry } from '@/lib/auth/withSessionRetry'
 import type { CartStoreGroupView } from '@/lib/types'
 
 export function cartLineKey(productId: string, variantId: string | null): string {
@@ -54,7 +55,7 @@ export function CartProvider({
 
   const refreshCart = useCallback(async () => {
     setLoading(true)
-    const result = await getCart()
+    const result = await withSessionRetry(() => getCart())
     if (result.ok) {
       const hydrated = await hydrateCartGroups(result.cart, storeCacheRef.current)
       setGroups(hydrated)
@@ -67,7 +68,7 @@ export function CartProvider({
 
   const addItem = useCallback(
     async (storeId: string, productId: string, variantId: string | null, quantity: number) => {
-      const result = await addToCartAction(storeId, productId, variantId, quantity)
+      const result = await withSessionRetry(() => addToCartAction(storeId, productId, variantId, quantity))
       if (result.ok && result.result.success) await refreshCart()
       return result
     },
@@ -75,7 +76,7 @@ export function CartProvider({
   )
 
   const incrementItem = useCallback(async (storeId: string, productId: string, variantId: string | null) => {
-    const result = await incrementCartItemAction(storeId, productId, variantId)
+    const result = await withSessionRetry(() => incrementCartItemAction(storeId, productId, variantId))
     if (result.ok) {
       setGroups((prev) =>
         prev.map((g) =>
@@ -100,7 +101,7 @@ export function CartProvider({
   }, [])
 
   const decrementItem = useCallback(async (storeId: string, productId: string, variantId: string | null) => {
-    const result = await decrementCartItemAction(storeId, productId, variantId)
+    const result = await withSessionRetry(() => decrementCartItemAction(storeId, productId, variantId))
     if (result.ok) {
       setGroups((prev) =>
         prev.map((g) =>
@@ -126,7 +127,7 @@ export function CartProvider({
 
   const removeItem = useCallback(
     async (storeId: string, productId: string, variantId: string | null) => {
-      const result = await removeCartItemAction(storeId, productId, variantId)
+      const result = await withSessionRetry(() => removeCartItemAction(storeId, productId, variantId))
       if (result.ok) await refreshCart()
     },
     [refreshCart],
@@ -142,7 +143,7 @@ export function CartProvider({
           }
         }
       }
-      const result = await checkoutCartAction(items)
+      const result = await withSessionRetry(() => checkoutCartAction(items))
       if (result.ok) await refreshCart()
       return result
     },

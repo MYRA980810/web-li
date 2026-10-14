@@ -2,6 +2,7 @@
 
 import { createLiveSchema, type CreateLiveInput } from './schemas'
 import { API, parseProblemDetail, requireToken, getToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import { isSessionRetryError, sessionRetryResult, type SessionRetryResult } from './auth/sessionRetry'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -623,6 +624,7 @@ function feedParams(page: number, size: number, categoryId?: string): URLSearchP
 export type GetActiveLivesResult =
   | { ok: true;  page: PageResponse<LiveFeedCardResponse> }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 /** Buyer-facing feed of lives currently in progress. */
 export async function getActiveLives(page = 0, size = 20, categoryId?: string): Promise<GetActiveLivesResult> {
@@ -634,6 +636,7 @@ export async function getActiveLives(page = 0, size = 20, categoryId?: string): 
     res = await fetchWithAuth(`${API}/api/lives/active?${params}`, { method: 'GET' }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -649,6 +652,7 @@ export async function getActiveLives(page = 0, size = 20, categoryId?: string): 
 export type GetUpcomingLivesResult =
   | { ok: true;  page: PageResponse<LiveUpcomingCardResponse> }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 /** Buyer-facing feed of scheduled lives. `scheduledAt` is a raw instant — the
  * caller computes the countdown, the backend does not pre-compute one. */
@@ -661,6 +665,7 @@ export async function getUpcomingLives(page = 0, size = 20, categoryId?: string)
     res = await fetchWithAuth(`${API}/api/lives/upcoming?${params}`, { method: 'GET' }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -685,6 +690,7 @@ export type ActiveLiveCounts = {
 export type GetActiveLiveCountsResult =
   | { ok: true;  counts: ActiveLiveCounts }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 type CategoryCountResponse = { categoryId: string; count: number }
 
@@ -703,6 +709,7 @@ export async function getActiveLiveCounts(): Promise<GetActiveLiveCountsResult> 
     ])
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -710,7 +717,7 @@ export async function getActiveLiveCounts(): Promise<GetActiveLiveCountsResult> 
     const error = await parseProblemDetail(countsRes)
     return { ok: false, error }
   }
-  if (!feedResult.ok) return { ok: false, error: feedResult.error }
+  if (!feedResult.ok) return feedResult
 
   let data: unknown
   try {
@@ -735,6 +742,7 @@ export async function getActiveLiveCounts(): Promise<GetActiveLiveCountsResult> 
 export type LiveReminderResult =
   | { ok: true }
   | { ok: false; error: string }
+  | SessionRetryResult
 
 const MAX_SUBSCRIPTION_LOOKUPS = 50
 
@@ -749,6 +757,7 @@ async function sendLiveReminderRequest(liveId: string, method: 'POST' | 'DELETE'
     res = await fetchWithAuth(`${API}/api/lives/${encodeURIComponent(liveId)}/subscribe`, { method }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
+    if (isSessionRetryError(err)) return sessionRetryResult()
     return { ok: false, error: 'No se pudo conectar con el servidor' }
   }
 
@@ -766,27 +775,34 @@ export async function unsubscribeFromLive(liveId: string): Promise<LiveReminderR
   return sendLiveReminderRequest(liveId, 'DELETE')
 }
 
-/** Reminder state for a bounded batch of lives. Any failure (401/403 for
- * non-buyers, network, bad payload) resolves to `false` for that id. */
-export async function getLiveSubscriptions(liveIds: string[]): Promise<Record<string, boolean>> {
-  const ids = Array.from(new Set(liveIds)).slice(0, MAX_SUBSCRIPTION_LOOKUPS)
-  const result: Record<string, boolean> = {}
-  const token = await getToken()
-  if (!token || ids.length === 0) return result
+export type GetLiveSubscriptionsResult =
+  | { ok: true; subscriptions: Record<string, boolean> }
+  | SessionRetryResult
 
+/** Reminder state for a bounded batch of lives. Any failure (401/403 for
+ * non-buyers, network, bad payload) resolves to `false` for that id; only a
+ * transient session refresh failure is surfaced, as the retry signal. */
+export async function getLiveSubscriptions(liveIds: string[]): Promise<GetLiveSubscriptionsResult> {
+  const ids = Array.from(new Set(liveIds)).slice(0, MAX_SUBSCRIPTION_LOOKUPS)
+  const subscriptions: Record<string, boolean> = {}
+  const token = await getToken()
+  if (!token || ids.length === 0) return { ok: true, subscriptions }
+
+  let sessionRetry = false
   await Promise.all(
     ids.map(async (liveId) => {
       try {
         const res = await fetchWithAuth(`${API}/api/lives/${encodeURIComponent(liveId)}/subscribed`, { method: 'GET' }, token)
         if (!res.ok) return
         const data = (await res.json()) as { subscribed?: unknown }
-        result[liveId] = data.subscribed === true
+        subscriptions[liveId] = data.subscribed === true
       } catch (err) {
         if (isNextInternalError(err)) throw err
+        if (isSessionRetryError(err)) sessionRetry = true
       }
     }),
   )
-  return result
+  return sessionRetry ? sessionRetryResult() : { ok: true, subscriptions }
 }
 
 // ─── sendLiveHeartbeat ────────────────────────────────────────────────────────

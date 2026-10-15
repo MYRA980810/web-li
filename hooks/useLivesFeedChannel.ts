@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { getLiveFeedToken } from '@/lib/liveActions'
 
 export type UseLivesFeedChannelOptions = {
+  /** False skips joining the channel (e.g. the SSE feed is enabled). Defaults to true. */
+  enabled?: boolean
   onLiveStarted?: (liveId: string) => void
   onLiveEnded?:   (liveId: string) => void
   onResync?:      () => void
@@ -42,7 +44,10 @@ export function useLivesFeedChannel(options: UseLivesFeedChannelOptions = {}): U
   const optionsRef = useRef(options)
   optionsRef.current = options
 
+  const enabled = options.enabled ?? true
+
   useEffect(() => {
+    if (!enabled) return
     let isMounted = true
 
     async function connect() {
@@ -110,7 +115,7 @@ export function useLivesFeedChannel(options: UseLivesFeedChannelOptions = {}): U
       if (cl) cl.logout().catch(() => {})
       setIsConnected(false)
     }
-  }, [])
+  }, [enabled])
 
   return { isConnected }
 }

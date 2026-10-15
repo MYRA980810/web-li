@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Ambient } from '@/components/Ambient'
 import { BuyerBottomNav } from '@/components/BuyerBottomNav'
 import { useLivesFeedChannel } from '@/hooks/useLivesFeedChannel'
+import { useLivesFeedStream } from '@/hooks/useLivesFeedStream'
 import { useLiveReminders } from '@/hooks/useLiveReminders'
 import { ALL_LIVE_CATEGORY, type LiveCategory } from '@/lib/liveCategories'
 import { withSessionRetry } from '@/lib/auth/withSessionRetry'
+import { FEED_STREAM_URL, feedToCounts, feedToPage } from '@/lib/liveFeed/feedView'
+import type { FeedState } from '@/lib/liveFeed/types'
 import {
   getActiveLiveCounts,
   getActiveLives,
@@ -156,12 +159,17 @@ export function LiveExplorerScreen({
     const upcomingGen = ++upcomingGenRef.current
     setSwitching(true)
 
+    // With the SSE feed synced, the active list is filtered locally (the
+    // stream is the full feed); only the upcoming list needs the backend.
+    const localFeed = sseFeedRef.current
+    if (localFeed) showSseFeed(localFeed)
+
     const [activeResult, upcomingResult] = await Promise.all([
-      withSessionRetry(() => getActiveLives(0, PAGE_SIZE, nextId)),
+      localFeed ? null : withSessionRetry(() => getActiveLives(0, PAGE_SIZE, nextId)),
       withSessionRetry(() => getUpcomingLives(0, PAGE_SIZE, nextId)),
     ])
 
-    if (activeGen === activeGenRef.current) {
+    if (activeResult && activeGen === activeGenRef.current) {
       if (activeResult.ok) {
         setActiveItems(activeResult.page.content)
         setActiveTotal(activeResult.page.totalElements)
@@ -211,6 +219,17 @@ export function LiveExplorerScreen({
     setActiveError(false)
   }, [])
 
+  // SSE feed (flag on): every snapshot/applied event carries the full feed,
+  // which replaces the active list for the current chip and the counts.
+  const sseFeedRef = useRef<FeedState | null>(null)
+  const showSseFeed = useCallback(
+    (feed: FeedState) => {
+      const forCategoryId = categoryIdRef.current
+      replaceActiveFeed(feedToPage(feed, forCategoryId === ALL_LIVE_CATEGORY.id ? null : forCategoryId), forCategoryId)
+    },
+    [replaceActiveFeed],
+  )
+
   const refreshActiveFeed = useCallback(async () => {
     const gen = activeGenRef.current
     const forCategoryId = categoryIdRef.current
@@ -251,7 +270,9 @@ export function LiveExplorerScreen({
   // Real-time explorer updates — global "lives-feed" RTM broadcast channel,
   // replaces polling. The channel payload is minimal (type + liveId only),
   // so on live-started we refetch page 0 rather than synthesizing a card.
+  // Used only when the SSE feed is disabled (NEXT_PUBLIC_LIVE_FEED_SSE).
   useLivesFeedChannel({
+    enabled: FEED_STREAM_URL === null,
     onLiveStarted: (liveId) => {
       void refreshActiveFeed()
       refreshCounts()
@@ -266,6 +287,20 @@ export function LiveExplorerScreen({
     onResync: () => {
       void refreshActiveFeed()
       refreshCounts()
+    },
+  })
+
+  // SSE feed: snapshots replace the list; no refetch of /active or counts.
+  useLivesFeedStream({
+    url: FEED_STREAM_URL,
+    onFeed: (feed) => {
+      sseFeedRef.current = feed
+      showSseFeed(feed)
+      setCounts(feedToCounts(feed))
+    },
+    onLiveStarted: (liveId) => {
+      if (upcomingIdsRef.current.has(liveId)) setUpcomingTotal((total) => Math.max(0, total - 1))
+      setUpcomingItems((prev) => prev.filter((i) => i.id !== liveId))
     },
   })
 

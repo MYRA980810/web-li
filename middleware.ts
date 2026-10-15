@@ -16,14 +16,22 @@ const AUTH_ROUTES = ['/login', '/register', '/google-auth', '/select-role']
 
 const SELLER_PREFIXES = ['/home', '/store', '/live', '/perfil', '/seller/payout']
 const BUYER_PREFIXES = ['/buyer']
+// Same-origin JSON endpoints called with fetch(): they get the same refresh as
+// pages, but auth failures answer JSON instead of a redirect.
+const BUYER_API_PATHS = ['/api/lives/feed/ticket']
 
 const ROLE_PREFIXES: { prefixes: string[]; role: string }[] = [
   { prefixes: SELLER_PREFIXES, role: 'SELLER' },
-  { prefixes: BUYER_PREFIXES, role: 'BUYER' },
+  { prefixes: [...BUYER_PREFIXES, ...BUYER_API_PATHS], role: 'BUYER' },
 ]
 
 // Gives a concurrent winner's Set-Cookie time to land before the browser retries.
 const RETRY_REDIRECT_DELAY_MS = 300
+
+function apiAuthError(status: 401 | 403): NextResponse {
+  const reason = status === 401 ? 'unauthenticated' : 'forbidden'
+  return NextResponse.json({ ok: false, reason }, { status, headers: { 'Cache-Control': 'no-store' } })
+}
 
 function getJwtRole(token: string): string | null {
   const payload = parseJwtPayload(token)
@@ -63,15 +71,16 @@ export async function middleware(req: NextRequest) {
   )
 
   if (matchedRole) {
+    const isApi = pathname.startsWith('/api/')
     const refreshToken = req.cookies.get('refresh_token')?.value
     if (!hasSession && !refreshToken) {
-      return NextResponse.redirect(new URL('/login', req.url))
+      return isApi ? apiAuthError(401) : NextResponse.redirect(new URL('/login', req.url))
     }
 
     // A missing session with a refresh token present is refreshed like an expired one.
     const stage = sessionToken ? refreshStage(sessionToken, Date.now()) : 'expired'
     if (stage === 'expired' && !refreshToken) {
-      const res = NextResponse.redirect(new URL('/login', req.url))
+      const res = isApi ? apiAuthError(401) : NextResponse.redirect(new URL('/login', req.url))
       res.cookies.delete('session')
       return res
     }
@@ -90,7 +99,7 @@ export async function middleware(req: NextRequest) {
       })
 
       if (decision.type === 'logout') {
-        const res = NextResponse.redirect(new URL('/login', req.url))
+        const res = isApi ? apiAuthError(401) : NextResponse.redirect(new URL('/login', req.url))
         res.cookies.delete('session')
         res.cookies.delete('refresh_token')
         res.cookies.delete(REFRESH_HOP_COOKIE)
@@ -168,7 +177,7 @@ export async function middleware(req: NextRequest) {
     }
 
     if (sessionToken && getJwtRole(sessionToken) !== matchedRole.role) {
-      return NextResponse.redirect(new URL('/', req.url))
+      return isApi ? apiAuthError(403) : NextResponse.redirect(new URL('/', req.url))
     }
   }
 
@@ -197,5 +206,6 @@ export const config = {
     '/seller/payout/:path+',
     '/buyer',
     '/buyer/:path+',
+    '/api/lives/feed/ticket',
   ],
 }

@@ -161,3 +161,74 @@ describe('middleware: forwarded cookie header', () => {
     expect(forwarded).toContain('refresh_token=rt-1')
   })
 })
+
+describe('middleware: stream ticket route handler (/api/lives/feed/ticket)', () => {
+  const TICKET = '/api/lives/feed/ticket'
+
+  function ticketRequest(cookies: Record<string, string>): NextRequest {
+    const cookie = Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
+    return new NextRequest(new URL(TICKET, 'https://app.test'), {
+      method: 'POST',
+      headers: { 'sec-fetch-dest': 'empty', ...(cookie ? { cookie } : {}) },
+    })
+  }
+
+  it('is covered by the matcher', async () => {
+    const { config } = await import('./middleware')
+    expect(config.matcher).toContain(TICKET)
+  })
+
+  it('fresh BUYER session → passes through untouched', async () => {
+    const res = await run(ticketRequest({ session: jwt(900), refresh_token: 'rt-1' }))
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(res.headers.get('location')).toBeNull()
+    expect(res.status).toBe(200)
+    expect(setCookies(res)).toEqual({})
+  })
+
+  it('inside the proactive window → refreshes before the handler runs and persists the cookies', async () => {
+    refreshMock.mockResolvedValue({ kind: 'ok', accessToken: 'at-new', refreshToken: 'rt-2' })
+    const res = await run(ticketRequest({ session: jwt(30), refresh_token: 'rt-1' }))
+
+    expect(refreshMock).toHaveBeenCalledWith('rt-1')
+    expect(res.headers.get('location')).toBeNull()
+    expect(setCookies(res)).toMatchObject({ session: 'at-new', refresh_token: 'rt-2' })
+    expect(res.headers.get('x-middleware-request-cookie') ?? '').toContain('session=at-new')
+  })
+
+  it('expired + retryable refresh → passes through (handler answers retry), refresh token kept', async () => {
+    refreshMock.mockResolvedValue({ kind: 'retry' })
+    const res = await run(ticketRequest({ session: jwt(-10), refresh_token: 'rt-1' }))
+    expect(res.headers.get('location')).toBeNull()
+    expect(res.status).toBe(200)
+    expect(setCookies(res)).not.toHaveProperty('refresh_token')
+  })
+
+  it('invalid refresh → 401 JSON (no redirect), both cookies cleared', async () => {
+    refreshMock.mockResolvedValue({ kind: 'invalid' })
+    const res = await run(ticketRequest({ session: jwt(-10), refresh_token: 'rt-1' }))
+    expect(res.status).toBe(401)
+    expect(res.headers.get('location')).toBeNull()
+    expect(await res.json()).toEqual({ ok: false, reason: 'unauthenticated' })
+    expect(setCookies(res)).toMatchObject({ session: '', refresh_token: '' })
+  })
+
+  it('no session and no refresh token → 401 JSON without refreshing', async () => {
+    const res = await run(ticketRequest({}))
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ ok: false, reason: 'unauthenticated' })
+  })
+
+  it('expired session without a refresh token → 401 JSON, session cleared', async () => {
+    const res = await run(ticketRequest({ session: jwt(-10) }))
+    expect(res.status).toBe(401)
+    expect(setCookies(res).session).toBe('')
+  })
+
+  it('a SELLER session → 403 JSON forbidden', async () => {
+    const res = await run(ticketRequest({ session: jwt(900, 'SELLER'), refresh_token: 'rt-1' }))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ ok: false, reason: 'forbidden' })
+  })
+})

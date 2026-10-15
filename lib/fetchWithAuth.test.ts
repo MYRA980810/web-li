@@ -40,6 +40,10 @@ function tokenExpired(): Response {
   return new Response(JSON.stringify({ code: 'TOKEN_EXPIRED' }), { status: 401 })
 }
 
+function invalidToken(): Response {
+  return new Response(JSON.stringify({ code: 'INVALID_TOKEN' }), { status: 401 })
+}
+
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -110,6 +114,78 @@ describe('fetchWithAuth in an action context', () => {
   })
 })
 
+describe('fetchWithAuth on a 401 INVALID_TOKEN', () => {
+  it('refreshes once and retries the original request with the new token', async () => {
+    fetchMock.mockResolvedValueOnce(invalidToken()).mockResolvedValueOnce(new Response('ok', { status: 200 }))
+    refreshMock.mockResolvedValue({ kind: 'ok', accessToken: 'at-new', refreshToken: 'rt-new' })
+
+    const res = await fetchWithAuth(API_URL, { method: 'GET' }, 'at-old')
+
+    expect(res.status).toBe(200)
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+    expect(cookieJar.get('session')).toBe('at-new')
+    expect(cookieJar.get('refresh_token')).toBe('rt-new')
+    expect((fetchMock.mock.calls[1][1] as RequestInit).headers).toMatchObject({ Authorization: 'Bearer at-new' })
+  })
+
+  it('returns a second 401 as-is without another refresh (no loop)', async () => {
+    fetchMock.mockResolvedValueOnce(invalidToken()).mockResolvedValueOnce(invalidToken())
+    refreshMock.mockResolvedValue({ kind: 'ok', accessToken: 'at-new' })
+
+    const res = await fetchWithAuth(API_URL, { method: 'GET' }, 'at-old')
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ code: 'INVALID_TOKEN' })
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(cookieJar.get('refresh_token')).toBe('rt-old')
+    expect(redirectMock).not.toHaveBeenCalled()
+  })
+
+  it('retryable refresh → SessionRetryError, cookies kept (DB down is not a logout)', async () => {
+    fetchMock.mockResolvedValue(invalidToken())
+    refreshMock.mockResolvedValue({ kind: 'retry' })
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, 'at-old')).rejects.toBeInstanceOf(SessionRetryError)
+    expect(cookieStore.delete).not.toHaveBeenCalledWith('session')
+    expect(cookieStore.delete).not.toHaveBeenCalledWith('refresh_token')
+    expect(cookieJar.get('refresh_token')).toBe('rt-old')
+  })
+
+  it('invalid refresh (deleted user) → existing logout path', async () => {
+    fetchMock.mockResolvedValue(invalidToken())
+    refreshMock.mockResolvedValue({ kind: 'invalid' })
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, 'at-old')).rejects.toBeInstanceOf(RedirectSignal)
+    expect(redirectMock).toHaveBeenCalledWith('/login')
+    expect(cookieJar.has('refresh_token')).toBe(false)
+  })
+
+  it('no refresh token → returns the 401 as-is and clears nothing', async () => {
+    cookieJar.delete('refresh_token')
+    fetchMock.mockResolvedValue(invalidToken())
+
+    const res = await fetchWithAuth(API_URL, { method: 'GET' }, 'at-old')
+
+    expect(res.status).toBe(401)
+    expect(cookieJar.get('session')).toBe('at-old')
+    expect(redirectMock).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['no code', {}],
+    ['UNAUTHENTICATED', { code: 'UNAUTHENTICATED' }],
+  ])('401 with %s is returned as-is, never refreshed', async (_label, body) => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(body), { status: 401 }))
+
+    const res = await fetchWithAuth(API_URL, { method: 'GET' }, 'at-old')
+
+    expect(res.status).toBe(401)
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
 function jwtExpiringIn(seconds: number): string {
   const exp = Math.floor(Date.now() / 1000) + seconds
   return `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ sub: 'u1', exp })).toString('base64url')}.sig`
@@ -164,5 +240,31 @@ describe('fetchWithAuth during a Server Component render', () => {
 
     await expect(fetchWithAuth(API_URL, { method: 'GET' }, expired)).rejects.toBeInstanceOf(RedirectSignal)
     expect(redirectMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('INVALID_TOKEN on a due token → redirects for the middleware to refresh', async () => {
+    const expiring = jwtExpiringIn(30)
+    cookieJar.set('session', expiring)
+    requestHeaders.set('x-pathname', '/buyer/lives')
+    fetchMock.mockResolvedValue(invalidToken())
+
+    await expect(fetchWithAuth(API_URL, { method: 'GET' }, expiring)).rejects.toBeInstanceOf(RedirectSignal)
+
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(redirectMock).toHaveBeenCalledWith('/buyer/lives')
+  })
+
+  it('INVALID_TOKEN on a fresh token → returns the 401 as-is (middleware would not refresh; no logout)', async () => {
+    const fresh = jwtExpiringIn(3600)
+    cookieJar.set('session', fresh)
+    requestHeaders.set('x-pathname', '/buyer/lives')
+    fetchMock.mockResolvedValue(invalidToken())
+
+    const res = await fetchWithAuth(API_URL, { method: 'GET' }, fresh)
+
+    expect(res.status).toBe(401)
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(redirectMock).not.toHaveBeenCalled()
+    expect(cookieJar.get('refresh_token')).toBe('rt-old')
   })
 })

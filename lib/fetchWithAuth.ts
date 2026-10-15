@@ -64,18 +64,38 @@ async function redirectForMiddlewareRefresh(expiredToken: string): Promise<never
   return logout()
 }
 
-// Refreshes the session for a TOKEN_EXPIRED response. Throws SessionRetryError
-// on a transient refresh result — never logs out on 409/429/5xx/network.
-async function refreshSession(expiredToken: string): Promise<string> {
+// 401 codes that one refresh can resolve. INVALID_TOKEN covers every
+// non-expiry JWT failure on the backend (bad signature, JWT_SECRET rotation,
+// deleted user, transient DB error); the opaque refresh token is validated
+// against the DB, so a single refresh sorts them out: rotation → new token,
+// deleted user → `invalid` (logout), DB down → `retry`. INVALID_TOKEN itself
+// never clears cookies — only an `invalid` refresh result does.
+type RefreshableCode = 'TOKEN_EXPIRED' | 'INVALID_TOKEN'
+
+function isRefreshableCode(code: string | undefined): code is RefreshableCode {
+  return code === 'TOKEN_EXPIRED' || code === 'INVALID_TOKEN'
+}
+
+// Refreshes the session for a refreshable 401. Throws SessionRetryError on a
+// transient refresh result — never logs out on 409/429/5xx/network. Returns
+// null when the caller should hand back the original 401 untouched.
+async function refreshSession(rejectedToken: string, code: RefreshableCode): Promise<string | null> {
   const cookieStore = await cookies()
-  if (!canWriteCookies(cookieStore)) return redirectForMiddlewareRefresh(expiredToken)
+  if (!canWriteCookies(cookieStore)) {
+    // A fresh-looking token the backend rejects is not something the
+    // middleware will refresh; a redirect would only log out. Keep today's
+    // behavior and let the caller see the 401.
+    if (code === 'INVALID_TOKEN' && !isRefreshDue(rejectedToken, Date.now())) return null
+    return redirectForMiddlewareRefresh(rejectedToken)
+  }
 
   // Another fetchWithAuth call in this same request already refreshed.
   const current = cookieStore.get('session')?.value
-  if (current && current !== expiredToken) return current
+  if (current && current !== rejectedToken) return current
 
   const refreshToken = cookieStore.get('refresh_token')?.value
-  if (!refreshToken) return logout()
+  // Nothing to refresh with. INVALID_TOKEN alone never clears cookies.
+  if (!refreshToken) return code === 'INVALID_TOKEN' ? null : logout()
 
   const result = await refreshWithSingleFlight(refreshToken)
   if (result.kind === 'retry') throw new SessionRetryError()
@@ -99,8 +119,10 @@ export async function fetchWithAuth(url: string, init: RequestInit, token: strin
   const clone = res.clone()
   let code: string | undefined
   try { code = ((await clone.json()) as { code?: string }).code } catch { /* empty */ }
-  if (code !== 'TOKEN_EXPIRED') return res
+  if (!isRefreshableCode(code)) return res
 
-  const newToken = await refreshSession(token)
+  const newToken = await refreshSession(token, code)
+  if (newToken === null) return res
+  // Exactly one retry: a second 401 is returned as-is, never refreshed again.
   return fetch(url, withBearer(newToken))
 }

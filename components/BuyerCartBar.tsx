@@ -1,21 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
 import { BagIcon } from '@/components/icons/BuyerNavIcons'
 import { useCart } from '@/app/buyer/_providers/CartProvider'
 import { formatMxn } from '@/lib/format'
 
+const noopSubscribe = () => () => {}
+
 export function BuyerCartBar() {
   const router = useRouter()
   const pathname = usePathname()
   const { groups, count } = useCart()
-  const [mounted, setMounted] = useState(false)
+  // document.body only exists on the client; false during SSR/hydration.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
 
-  useEffect(() => setMounted(true), [])
-
-  if (!mounted || count === 0 || pathname.startsWith('/buyer/cart')) return null
+  // The live player has its own "Bolsa" sheet; the bar would cover the chat input.
+  const onLivePlayer = /^\/buyer\/lives\/[^/]+/.test(pathname)
+  if (!mounted || count === 0 || pathname.startsWith('/buyer/cart') || onLivePlayer) return null
 
   const total = groups.reduce(
     (sum, g) => sum + g.lines.reduce((lineSum, l) => lineSum + l.unitPrice * l.quantity, 0),

@@ -1,19 +1,40 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { MediaPlayer } from 'amazon-ivs-player'
-import { BagIcon } from '@/components/icons/BuyerNavIcons'
-import { CommentIcon, HeartIcon, ShareIcon, SpeakerIcon } from '@/components/icons/LiveActionIcons'
 import { useLiveChat, type StockUpdateEvent, type ProductExpiredEvent } from '@/hooks/useLiveChat'
-import { sendLiveHeartbeat, getLiveProducts, type LiveResponse, type LiveProductApiResponse } from '@/lib/liveActions'
+import {
+  buyLiveProduct,
+  getLiveProducts,
+  sendLiveHeartbeat,
+  type LiveOrderResponse,
+  type LiveProductApiResponse,
+  type LiveResponse,
+} from '@/lib/liveActions'
+import { useCart } from '@/app/buyer/_providers/CartProvider'
+import { formatMxn } from '@/lib/format'
+import { useIvsLivePlayer } from '../_hooks/useIvsLivePlayer'
+import { useStoreFollow } from '../_hooks/useStoreFollow'
+import {
+  cartBagSummary,
+  formatFollowerCount,
+  formatPlainCount,
+  liveOrderSummary,
+  stockRemaining,
+} from '../_lib/livePlayerView'
+import { MOCK_LIVE_LIKE_COUNT } from '../_lib/liveMocks'
+import { LiveHeader } from './LiveHeader'
+import { LiveActionRail } from './LiveActionRail'
+import { LiveAudioControl } from './LiveAudioControl'
+import { LiveChatOverlay } from './LiveChatOverlay'
+import { LiveChatInput } from './LiveChatInput'
+import { NowShowingCard } from './NowShowingCard'
+import { LiveBagSheet, type LiveBagTab } from './LiveBagSheet'
 
-const PINNED_THUMB_BG = 'linear-gradient(135deg, #7c3f6b, #3a1a30)'
-const LIKES = '1.2k'
-const COMMENTS = 86
-const CART_COUNT = 3
 const HEARTBEAT_INTERVAL_MS = 15000
 const VIEWER_ID_KEY = 'live-viewer-id'
+const FEEDBACK_MS = 3000
+const SHARE_LABEL = 'Compartir'
 
 function getOrCreateViewerId(): string {
   try {
@@ -27,23 +48,23 @@ function getOrCreateViewerId(): string {
   }
 }
 
-function ActionButton({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <button className="live-feed-action-btn" aria-label={label}>
-        {icon}
-      </button>
-      <span className="text-[11px] font-semibold text-white/90">{label}</span>
-    </div>
-  )
+export type LiveStoreInfo = {
+  id: string
+  name: string
+  logoUrl: string | null
+  followerCount: number
 }
 
 export type LiveFeedScreenProps = {
   live: LiveResponse | null
   products: LiveProductApiResponse[]
+  /** Null for lives without a store (SELLER_PROFILE context) or lookup failure. */
+  store: LiveStoreInfo | null
+  initialFollowing: boolean
+  initialOrder: LiveOrderResponse | null
 }
 
-export function LiveFeedScreen({ live, products }: LiveFeedScreenProps) {
+export function LiveFeedScreen({ live, ...rest }: LiveFeedScreenProps) {
   const router = useRouter()
 
   if (!live) {
@@ -62,39 +83,65 @@ export function LiveFeedScreen({ live, products }: LiveFeedScreenProps) {
     )
   }
 
-  return <LiveFeedContent live={live} products={products} />
+  return <LiveFeedContent live={live} {...rest} />
 }
 
-function LiveFeedContent({ live, products }: { live: LiveResponse; products: LiveProductApiResponse[] }) {
-  const router = useRouter()
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const playerRef = useRef<MediaPlayer | null>(null)
-  const [playbackError, setPlaybackError] = useState(false)
-  const [muted, setMuted] = useState(true)
-  const [liveProducts, setLiveProducts] = useState<LiveProductApiResponse[]>(products)
-  // Read inside the async player-creation effect so a mute toggle clicked
-  // before the player finishes loading isn't clobbered by a stale value.
-  const mutedRef = useRef(muted)
-  mutedRef.current = muted
+type FollowSlotProps = {
+  store: LiveStoreInfo
+  initialFollowing: boolean
+  children: (follow: ReturnType<typeof useStoreFollow>) => React.ReactNode
+}
 
+/** Hooks can't be conditional, so the follow state lives in a child that
+ * only mounts when the live actually has a store. */
+function FollowSlot({ store, initialFollowing, children }: FollowSlotProps) {
+  const follow = useStoreFollow(store.id, initialFollowing, store.followerCount)
+  return <>{children(follow)}</>
+}
+
+type LiveFeedContentProps = Omit<LiveFeedScreenProps, 'live'> & { live: LiveResponse }
+
+function LiveFeedContent({ live, products, store, initialFollowing, initialOrder }: LiveFeedContentProps) {
+  const router = useRouter()
   const isLive = live.status === 'LIVE' && !!live.ivsPlaybackUrl
+  const {
+    videoRef,
+    playbackError,
+    reconnecting,
+    muted,
+    volume,
+    volumeAdjustable,
+    audioBlocked,
+    playbackBlocked,
+    toggleMute,
+    changeVolume,
+    resumeAudio,
+    resumePlayback,
+    retry,
+  } = useIvsLivePlayer(isLive ? live.ivsPlaybackUrl : null)
+  const { groups } = useCart()
+
+  const [liveProducts, setLiveProducts] = useState<LiveProductApiResponse[]>(products)
+  const [liveOrder, setLiveOrder] = useState<LiveOrderResponse | null>(initialOrder)
+  const [heartbeatViewers, setHeartbeatViewers] = useState<number | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [addFeedback, setAddFeedback] = useState<{ tone: 'error' | 'success'; text: string } | null>(null)
+  const [liked, setLiked] = useState(false)
+  const [shareLabel, setShareLabel] = useState(SHARE_LABEL)
+  const [bagTab, setBagTab] = useState<LiveBagTab | null>(null)
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
   const pinnedProduct = liveProducts.find((p) => p.isPinned) ?? null
 
-  function toggleMute() {
-    setMuted((prev) => !prev)
-  }
-
-  const { viewerCount } = useLiveChat(live.id, {
+  const { messages, sendMessage, viewerCount } = useLiveChat(live.id, {
     onProductPinned: () => {
       void getLiveProducts(live.id).then((result) => {
         if (result.ok) setLiveProducts(result.products)
       })
     },
-    onStockUpdate: ({ liveProductId, stockRemaining }: StockUpdateEvent) => {
+    onStockUpdate: ({ liveProductId, stockRemaining: remaining }: StockUpdateEvent) => {
       setLiveProducts((prev) =>
-        prev.map((p) =>
-          p.id === liveProductId ? { ...p, stockSold: p.stockAllocated - stockRemaining } : p,
-        ),
+        prev.map((p) => (p.id === liveProductId ? { ...p, stockSold: p.stockAllocated - remaining } : p)),
       )
     },
     onProductExpired: ({ liveProductId, status }: ProductExpiredEvent) => {
@@ -103,81 +150,109 @@ function LiveFeedContent({ live, products }: { live: LiveResponse; products: Liv
       )
     },
   })
-  const formattedViewers =
-    viewerCount === null ? '—' : viewerCount >= 1000 ? `${(viewerCount / 1000).toFixed(1)}k` : String(viewerCount)
-
-  // Dynamically imported — the WASM player SDK only loads for viewers actually
-  // watching a live stream, not on every visit to this route.
-  useEffect(() => {
-    if (!isLive || !videoRef.current) return
-    let cancelled = false
-
-    void (async () => {
-      const { create, isPlayerSupported, PlayerEventType } = await import('amazon-ivs-player')
-      if (cancelled || !videoRef.current) return
-      if (!isPlayerSupported) {
-        setPlaybackError(true)
-        return
-      }
-
-      const player = create({
-        wasmWorker: '/ivs-player/amazon-ivs-wasmworker.min.js',
-        wasmBinary: '/ivs-player/amazon-ivs-wasmworker.min.wasm',
-      })
-      playerRef.current = player
-      player.attachHTMLVideoElement(videoRef.current)
-      player.addEventListener(PlayerEventType.ERROR, () => {
-        setPlaybackError(true)
-        // The effect's own cleanup only runs on unmount/dep change, not on this
-        // state update — dispose here so a playback error doesn't leak the
-        // player instance for the rest of this live's viewing session.
-        player.delete()
-        if (playerRef.current === player) playerRef.current = null
-      })
-      player.setMuted(mutedRef.current)
-      player.setAutoplay(true)
-      player.load(live.ivsPlaybackUrl!)
-      player.play()
-    })()
-
-    return () => {
-      cancelled = true
-      playerRef.current?.delete()
-      playerRef.current = null
-    }
-  }, [isLive, live.ivsPlaybackUrl])
-
-  // Syncs the player's audio state with the mute toggle without recreating
-  // the player instance (that would restart playback).
-  useEffect(() => {
-    playerRef.current?.setMuted(muted)
-  }, [muted])
 
   // Registers this viewer with the backend so it's reflected in the live's
   // viewer count (pushed back to every client via the RTM `viewer-count`
-  // system message that useLiveChat listens for).
+  // system message that useLiveChat listens for). The heartbeat response also
+  // carries the count, used until the first RTM update arrives.
   useEffect(() => {
     if (live.status !== 'LIVE') return
     const viewerId = getOrCreateViewerId()
-    void sendLiveHeartbeat(live.id, viewerId)
-    const interval = setInterval(() => void sendLiveHeartbeat(live.id, viewerId), HEARTBEAT_INTERVAL_MS)
+    const beat = () =>
+      void sendLiveHeartbeat(live.id, viewerId).then((result) => {
+        if (result.ok) setHeartbeatViewers(result.viewerCount)
+      })
+    beat()
+    const interval = setInterval(beat, HEARTBEAT_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [live.id, live.status])
 
-  const showFallback = !isLive || playbackError
+  useEffect(() => {
+    const timers = timersRef.current
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  const later = useCallback((fn: () => void, ms: number) => {
+    timersRef.current.push(setTimeout(fn, ms))
+  }, [])
+
+  async function handleAdd() {
+    if (!pinnedProduct || adding) return
+    setAdding(true)
+    setAddFeedback(null)
+    const result = await buyLiveProduct(live.id, pinnedProduct.id, 1).catch(() => ({
+      ok: false as const,
+      error: 'No se pudo conectar con el servidor',
+    }))
+    setAdding(false)
+    if (result.ok) {
+      setLiveOrder(result.order)
+      setAddFeedback({ tone: 'success', text: 'Agregado a Mis compras' })
+    } else {
+      setAddFeedback({ tone: 'error', text: result.error })
+    }
+    later(() => setAddFeedback(null), FEEDBACK_MS)
+  }
+
+  async function handleShare() {
+    const url = window.location.href
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: live.title, url })
+      } catch {
+        // User dismissed the share sheet.
+      }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setShareLabel('Copiado')
+      later(() => setShareLabel(SHARE_LABEL), FEEDBACK_MS)
+    } catch {
+      // Clipboard unavailable (insecure context) — nothing else to fall back to.
+    }
+  }
+
+  const cart = cartBagSummary(groups)
+  const order = liveOrderSummary(liveOrder)
+  const bagCount = cart.lines.length + order.count
+  const closeBag = useCallback(() => setBagTab(null), [])
+
+  function openBag() {
+    setBagTab(cart.lines.length === 0 && order.count > 0 ? 'orders' : 'cart')
+  }
+
+  // The <video> stays mounted for the whole live — even after a fatal player
+  // error — so recovery and manual retry can attach a new player to it.
+  const showVideo = isLive && !playbackError
+  const viewersLabel = formatPlainCount(viewerCount ?? heartbeatViewers)
+  const onClose = () => router.push('/buyer/lives')
+
+  const header = (follow: ReturnType<typeof useStoreFollow> | null) => (
+    <LiveHeader
+      storeName={store?.name ?? 'Tienda'}
+      logoUrl={store?.logoUrl ?? null}
+      subtitle={follow ? formatFollowerCount(follow.followerCount) : live.title}
+      follow={follow ? { following: follow.following, pending: follow.pending, onToggle: follow.toggleFollow } : null}
+      onClose={onClose}
+      onAir={showVideo}
+      viewersLabel={viewersLabel}
+    />
+  )
 
   return (
-    <div className={`live-feed-stage${showFallback ? ' live-feed-fallback-bg' : ''}`}>
-      {isLive && !playbackError ? (
+    <div className={`live-feed-stage${showVideo ? '' : ' live-feed-fallback-bg'}`}>
+      {isLive && (
         <video
           ref={videoRef}
           muted={muted}
           autoPlay
           playsInline
           poster={live.thumbnailUrl ?? undefined}
-          className="absolute inset-0 w-full h-full object-cover"
+          className={`absolute inset-0 w-full h-full object-cover${playbackError ? ' invisible' : ''}`}
         />
-      ) : (
+      )}
+      {!isLive && (
         <div className="absolute inset-0 flex items-center justify-center px-8">
           <p className="text-[13px] text-white/70 text-center">Este live no está disponible ahora mismo.</p>
         </div>
@@ -185,76 +260,86 @@ function LiveFeedContent({ live, products }: { live: LiveResponse; products: Liv
 
       <div className="live-feed-overlay" />
 
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-5 z-10">
-        <button className="live-feed-icon-btn" onClick={() => router.push('/buyer/lives')} aria-label="Cerrar">
-          ✕
-        </button>
-        <div className="flex items-center gap-2">
-          <button className="live-feed-icon-btn" onClick={toggleMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'}>
-            <SpeakerIcon muted={muted} />
-          </button>
-          <button className="live-feed-icon-btn" aria-label="Buscar">🔍</button>
-        </div>
-      </div>
+      <div className="relative z-10 mx-auto flex h-full max-w-[480px] flex-col gap-3 px-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)]">
+        {store ? (
+          <FollowSlot store={store} initialFollowing={initialFollowing}>
+            {(follow) => header(follow)}
+          </FollowSlot>
+        ) : (
+          header(null)
+        )}
 
-      {isLive && !playbackError && (
-        <div className="absolute top-16 left-4 z-10">
-          <span className="live-badge">
-            <span className="dot" />
-            En vivo
-          </span>
-        </div>
-      )}
-
-      <div className="live-feed-badge absolute top-16 right-4 z-10">👁 {formattedViewers}</div>
-
-      <div className="absolute right-3 bottom-56 z-10 flex flex-col items-center gap-5">
-        <ActionButton icon={<HeartIcon />} label={LIKES} />
-        <ActionButton icon={<CommentIcon />} label={String(COMMENTS)} />
-        <ActionButton icon={<ShareIcon />} label="Enviar" />
-        <div className="flex flex-col items-center gap-1.5">
-          <button className="live-feed-cart-btn" aria-label="Carrito">
-            <BagIcon />
-          </button>
-          <span className="text-[11px] font-semibold text-white/90">{CART_COUNT}</span>
-        </div>
-      </div>
-
-      <div className="absolute left-4 right-4 bottom-32 z-10 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display font-bold text-[15px] text-white truncate max-w-64">{live.title}</p>
-        </div>
-        <button className="bg-white text-[#1a0612] text-[13px] font-bold px-5 py-2 rounded-full shrink-0 shadow-[0_4px_16px_rgba(0,0,0,0.35)]">
-          Seguir
-        </button>
-      </div>
-
-      {pinnedProduct && (
-        <div className="absolute left-4 right-4 bottom-12 z-10">
-          <div className="live-feed-pinned-card">
-            <div
-              className="live-feed-pinned-thumb"
-              style={{
-                background: pinnedProduct.imageUrl
-                  ? `url(${pinnedProduct.imageUrl}) center/cover no-repeat`
-                  : PINNED_THUMB_BG,
-              }}
-            />
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <span className="live-feed-pinned-badge">Anclado</span>
-              <p className="text-[13px] font-bold text-white truncate">{pinnedProduct.productNameSnapshot}</p>
-              <p className="text-[13px] font-bold text-brand-400">
-                ${pinnedProduct.priceSnapshot.toLocaleString('es-MX')} {pinnedProduct.currencySnapshot}
-              </p>
+        <div className="flex flex-1 items-center justify-center">
+          {isLive && playbackError ? (
+            <div role="alert" className="flex flex-col items-center gap-4 px-8">
+              <p className="text-[14px] text-white/80 text-center">No pudimos reproducir este live.</p>
+              <button type="button" onClick={retry} className="live-player-hint">
+                Reintentar
+              </button>
             </div>
-            <button className="live-launch-btn shrink-0">Comprar</button>
-          </div>
+          ) : showVideo && reconnecting ? (
+            <p role="status" className="live-player-hint cursor-default">
+              Reconectando…
+            </p>
+          ) : showVideo && playbackBlocked ? (
+            <button type="button" onClick={resumePlayback} className="live-player-hint">
+              Toca para reproducir
+            </button>
+          ) : showVideo && audioBlocked ? (
+            <button type="button" onClick={resumeAudio} className="live-player-hint">
+              Toca para activar sonido
+            </button>
+          ) : null}
         </div>
-      )}
 
-      <p className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-white/50 z-10">
-        ↑ desliza para el siguiente live
-      </p>
+        <div className="flex items-end gap-3">
+          <div className="flex-1 min-w-0">
+            <LiveChatOverlay messages={messages} />
+          </div>
+          <LiveActionRail
+            audio={
+              <LiveAudioControl
+                muted={muted}
+                volume={volume}
+                adjustable={volumeAdjustable}
+                onToggleMute={toggleMute}
+                onVolumeChange={changeVolume}
+              />
+            }
+            like={{
+              liked,
+              countLabel: formatPlainCount(MOCK_LIVE_LIKE_COUNT + (liked ? 1 : 0)),
+              onToggle: () => setLiked((v) => !v),
+            }}
+            share={{ label: shareLabel, onShare: () => void handleShare() }}
+            bag={{ count: bagCount, onOpen: openBag }}
+          />
+        </div>
+
+        {pinnedProduct && (
+          <NowShowingCard
+            name={pinnedProduct.productNameSnapshot}
+            priceLabel={formatMxn(pinnedProduct.priceSnapshot)}
+            imageUrl={pinnedProduct.imageUrl}
+            remaining={stockRemaining(pinnedProduct)}
+            adding={adding}
+            feedback={addFeedback}
+            onAdd={() => void handleAdd()}
+          />
+        )}
+
+        <LiveChatInput onSend={(text) => void sendMessage(text)} />
+      </div>
+
+      {bagTab && (
+        <LiveBagSheet
+          initialTab={bagTab}
+          cart={cart}
+          liveOrder={order}
+          onClose={closeBag}
+          onCheckout={() => router.push('/buyer/cart')}
+        />
+      )}
     </div>
   )
 }

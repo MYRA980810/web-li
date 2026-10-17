@@ -818,3 +818,77 @@ export async function sendLiveHeartbeat(liveId: string, viewerId: string): Promi
   const { viewerCount } = (await res.json()) as { viewerCount: number }
   return { ok: true, viewerCount }
 }
+
+// ─── buyLiveProduct / getActiveLiveOrder (BUYER) ──────────────────────────────
+
+export type LiveOrderItem = {
+  id: string
+  productId: string | null
+  productName: string
+  unitPrice: number
+  currency: string
+  quantity: number
+  subtotal: number
+  status: string
+  imageUrl: string | null
+}
+
+export type LiveOrderResponse = {
+  id: string
+  storeId: string | null
+  liveSessionId: string | null
+  status: 'OPEN' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+  currency: string
+  items: LiveOrderItem[]
+}
+
+export type BuyLiveProductResult =
+  | { ok: true;  order: LiveOrderResponse }
+  | { ok: false; error: string }
+
+/** BUYER-only. Live products are LIVE_EXCLUSIVE for the regular cart, so a
+ * purchase during a live goes through `POST /api/lives/{liveId}/buy`: the
+ * backend reserves live stock and appends the item to the buyer's OPEN order
+ * for this live (finalized later via `/exit`). Takes the LiveProduct id, not
+ * the catalog product id — hot products have no catalog id at all. */
+export async function buyLiveProduct(liveId: string, liveProductId: string, quantity = 1): Promise<BuyLiveProductResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'Inicia sesión para comprar' }
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/lives/${encodeURIComponent(liveId)}/buy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ liveProductId, quantity }),
+    }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const error = await parseProblemDetail(res)
+    return { ok: false, error }
+  }
+
+  const order = await res.json()
+  return { ok: true, order: order as LiveOrderResponse }
+}
+
+/** BUYER-only. The buyer's OPEN order for this live, or null when there is
+ * none (backend answers 204) or the request fails. */
+export async function getActiveLiveOrder(liveId: string): Promise<LiveOrderResponse | null> {
+  const token = await getToken()
+  if (!token) return null
+
+  const params = new URLSearchParams({ liveSessionId: liveId })
+  try {
+    const res = await fetchWithAuth(`${API}/api/orders/active?${params}`, { method: 'GET' }, token)
+    if (!res.ok || res.status === 204) return null
+    return (await res.json()) as LiveOrderResponse
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return null
+  }
+}

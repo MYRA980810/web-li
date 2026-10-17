@@ -1,5 +1,6 @@
-import { LiveFeedScreen } from './_components/LiveFeedScreen'
-import { getLiveById, getLiveProducts } from '@/lib/liveActions'
+import { LiveFeedScreen, type LiveStoreInfo } from './_components/LiveFeedScreen'
+import { getActiveLiveOrder, getLiveById, getLiveProducts } from '@/lib/liveActions'
+import { getFollowingStatus, getStoreById } from '@/lib/buyerStoreActions'
 
 export default async function BuyerLiveDetailPage({
   params,
@@ -7,7 +8,11 @@ export default async function BuyerLiveDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [live, productsResult] = await Promise.all([getLiveById(id), getLiveProducts(id)])
+  const [live, productsResult, initialOrder] = await Promise.all([
+    getLiveById(id),
+    getLiveProducts(id),
+    getActiveLiveOrder(id),
+  ])
 
   // getLiveById collapses "not found" and transient backend/auth failures into
   // the same null — logged here so an outage is at least visible server-side.
@@ -17,5 +22,33 @@ export default async function BuyerLiveDetailPage({
 
   const products = productsResult.ok ? productsResult.products : []
 
-  return <LiveFeedScreen live={live} products={products} />
+  // Store header data. getStoreById is a listing scan (no by-id endpoint);
+  // lives in SELLER_PROFILE context have no store at all.
+  let store: LiveStoreInfo | null = null
+  let initialFollowing = false
+  if (live?.storeId) {
+    const [storeCard, following] = await Promise.all([
+      getStoreById(live.storeId),
+      getFollowingStatus(live.storeId),
+    ])
+    if (storeCard) {
+      store = {
+        id: storeCard.id,
+        name: storeCard.name,
+        logoUrl: storeCard.logoUrl,
+        followerCount: storeCard.followerCount,
+      }
+    }
+    initialFollowing = following
+  }
+
+  return (
+    <LiveFeedScreen
+      live={live}
+      products={products}
+      store={store}
+      initialFollowing={initialFollowing}
+      initialOrder={initialOrder}
+    />
+  )
 }

@@ -1,6 +1,6 @@
 'use server'
 
-import { API, parseProblemDetail, isNextInternalError } from './fetchWithAuth'
+import { API, parseProblemDetail, isNextInternalError, getToken, fetchWithAuth } from './fetchWithAuth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,4 +122,49 @@ export async function getStoreReviews(storeId: string, page = 0, size = 20): Pro
 
   const page_ = await res.json()
   return { ok: true, page: page_ as PageResponse<StoreReviewResponse> }
+}
+
+// ─── Store follow (BUYER) ─────────────────────────────────────────────────────
+
+export type FollowStoreResult = { ok: true } | { ok: false; error: string }
+
+/** BUYER-only `POST|DELETE /api/stores/{storeId}/follow` (204 on success). */
+async function sendFollowRequest(storeId: string, method: 'POST' | 'DELETE'): Promise<FollowStoreResult> {
+  const token = await getToken()
+  if (!token) return { ok: false, error: 'Inicia sesión para seguir tiendas' }
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(`${API}/api/stores/${encodeURIComponent(storeId)}/follow`, { method }, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (res.ok) return { ok: true }
+  return { ok: false, error: await parseProblemDetail(res) }
+}
+
+export async function followStore(storeId: string): Promise<FollowStoreResult> {
+  return sendFollowRequest(storeId, 'POST')
+}
+
+export async function unfollowStore(storeId: string): Promise<FollowStoreResult> {
+  return sendFollowRequest(storeId, 'DELETE')
+}
+
+/** `GET /api/stores/{storeId}/following` is permitAll and degrades to false
+ * for anonymous callers; any failure here also resolves to false. */
+export async function getFollowingStatus(storeId: string): Promise<boolean> {
+  const token = await getToken()
+  if (!token) return false
+  try {
+    const res = await fetchWithAuth(`${API}/api/stores/${encodeURIComponent(storeId)}/following`, { method: 'GET' }, token)
+    if (!res.ok) return false
+    const data = (await res.json()) as { following?: unknown }
+    return data.following === true
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return false
+  }
 }

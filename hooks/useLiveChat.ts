@@ -1,282 +1,232 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getChatToken, getChatHistory, type ChatHistoryMessage } from '@/lib/liveActions'
+import {
+  banChatUser,
+  deleteChatMessage,
+  getChatHistory,
+  getIvsChatToken,
+  type ChatModerationResult,
+  type ChatProvider,
+} from '@/lib/liveActions'
+import {
+  appendChatMessage,
+  chatMaxMessageLength,
+  truncateChatText,
+  applyAgoraHistoryGap,
+  mapHistoryMessages,
+  mergeChatMessages,
+  removeChatMessage,
+  type ChatMessage,
+} from '@/lib/liveChat/chatMessages'
+import { SEND_PENDING_MESSAGE, isSendForbiddenError, sendErrorMessage } from '@/lib/liveChat/chatErrors'
+import { createAgoraChatTransport } from '@/lib/liveChat/agoraChatTransport'
+import { createIvsChatTransport } from '@/lib/liveChat/ivsChatTransport'
+import type { ChatTransport, ChatTransportHandlers } from '@/lib/liveChat/chatTransport'
+import type {
+  LiveEndedEvent,
+  LiveReconnectingEvent,
+  ProductExpiredEvent,
+  ProductPinnedEvent,
+  RoomEvent,
+  StockUpdateEvent,
+} from '@/lib/liveChat/roomEvents'
 
-const USER_COLORS = ['#a78bfa', '#22d3ee', '#ff3d96', '#4ade80', '#fbbf24', '#fb923c']
+export type { ChatMessage } from '@/lib/liveChat/chatMessages'
+export type {
+  LiveEndedEvent,
+  LiveReconnectingEvent,
+  ProductExpiredEvent,
+  ProductPinnedEvent,
+  StockUpdateEvent,
+} from '@/lib/liveChat/roomEvents'
 
-function colorForUserId(userId: string): string {
-  let hash = 0
-  for (const c of userId) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff
-  return USER_COLORS[hash % USER_COLORS.length]
-}
-
-function displayUsername(username: string, rtmUid: string): string {
-  if (username === rtmUid) return 'Tú'
-  if (/^[0-9a-f-]{36}$/i.test(username)) return `Usuario ${username.slice(0, 8)}`
-  return username
-}
-
-// ── RTM system message shapes ─────────────────────────────────────────────────
-
-export type ProductPinnedEvent = {
-  liveProductId: string
-  productName: string
-  price: number
-  displayDurationSeconds: number
-}
-
-export type StockUpdateEvent = {
-  liveProductId: string
-  stockRemaining: number
-}
-
-export type ProductExpiredEvent = {
-  liveProductId: string
-  status: 'AVAILABLE' | 'SOLD'
-}
-
-// ── Public types ──────────────────────────────────────────────────────────────
-
-export type ChatMessage = {
-  id: string
-  userId: string
-  username: string
-  content: string
-  sentAt: string
-  color: string
-}
+const SEND_ERROR_VISIBLE_MS = 4000
+const NETWORK_ERROR = 'No se pudo conectar con el servidor'
 
 export type UseLiveChatOptions = {
-  onProductPinned?:  (event: ProductPinnedEvent)  => void
-  onStockUpdate?:    (event: StockUpdateEvent)    => void
-  onProductExpired?: (event: ProductExpiredEvent) => void
+  onProductPinned?:    (event: ProductPinnedEvent)    => void
+  onStockUpdate?:      (event: StockUpdateEvent)      => void
+  onProductExpired?:   (event: ProductExpiredEvent)   => void
+  onLiveReconnecting?: (event: LiveReconnectingEvent) => void
+  /** IVS only: the live ended and its chat room is being deleted. */
+  onLiveEnded?:        (event: LiveEndedEvent)        => void
+  /** Live owner id, used to flag history messages from the host. */
+  sellerId?: string
 }
 
-type UseLiveChatReturn = {
-  messages:    ChatMessage[]
-  sendMessage: (text: string) => Promise<void>
-  isConnected: boolean
-  isSending:   boolean
-  viewerCount: number | null
+export type UseLiveChatReturn = {
+  messages:     ChatMessage[]
+  /** Resolves false when the message was not accepted (see sendError); true
+   * when sent or probably sent (timeout, with a soft notice in sendError). */
+  sendMessage:  (text: string) => Promise<boolean>
+  isConnected:  boolean
+  isSending:    boolean
+  viewerCount:  number | null
+  chatProvider: ChatProvider
+  /** Last send rejection (IVS), cleared automatically after a few seconds. */
+  sendError:    string | null
+  /** False when the seller banned the current user: the chat stays readable
+   * (receive-only token) but sending is disabled. Always true for Agora. */
+  canSend:      boolean
+  /** Reconnects exhausted; retried automatically when back online / visible. */
+  isChatLost:   boolean
+  /** Per-provider limit: 500 (IVS) / 300 (Agora). */
+  maxMessageLength: number
+  /** Seller moderation (IVS only). */
+  deleteMessage: (message: ChatMessage) => Promise<ChatModerationResult>
+  banUser:       (userId: string) => Promise<ChatModerationResult>
 }
 
-function mapHistory(msg: ChatHistoryMessage, rtmUid: string): ChatMessage {
-  return {
-    id:       msg.id,
-    userId:   msg.userId,
-    username: displayUsername(msg.username, rtmUid),
-    content:  msg.content,
-    sentAt:   msg.sentAt,
-    color:    colorForUserId(msg.userId),
-  }
+export function resolveChatProvider(chatProvider: ChatProvider | null | undefined): ChatProvider {
+  return chatProvider === 'ivs' ? 'ivs' : 'agora'
 }
 
-function handleSystemMessage(
-  text: string,
-  memberId: string,
-  options: UseLiveChatOptions,
-  setViewerCount: React.Dispatch<React.SetStateAction<number | null>>,
-): boolean {
-  if (memberId !== 'live-server') return false
+export function useLiveChat(
+  liveId: string,
+  chatProvider: ChatProvider | null | undefined,
+  options: UseLiveChatOptions = {},
+): UseLiveChatReturn {
+  const provider = resolveChatProvider(chatProvider)
 
-  let payload: Record<string, unknown>
-  try {
-    payload = JSON.parse(text) as Record<string, unknown>
-  } catch {
-    return false
-  }
-
-  const type = payload.type as string | undefined
-  if (!type) return false
-
-  switch (type) {
-    case 'viewer-count':
-      setViewerCount(payload.count as number)
-      return true
-    case 'product-pinned':
-      options.onProductPinned?.({
-        liveProductId:          payload.liveProductId          as string,
-        productName:            payload.productName            as string,
-        price:                  payload.price                  as number,
-        displayDurationSeconds: payload.displayDurationSeconds as number,
-      })
-      return true
-    case 'stock-update':
-      options.onStockUpdate?.({
-        liveProductId:  payload.liveProductId  as string,
-        stockRemaining: payload.stockRemaining as number,
-      })
-      return true
-    case 'product-expired':
-      options.onProductExpired?.({
-        liveProductId: payload.liveProductId as string,
-        status:        payload.status        as 'AVAILABLE' | 'SOLD',
-      })
-      return true
-    default:
-      return true
-  }
-}
-
-export function useLiveChat(liveId: string, options: UseLiveChatOptions = {}): UseLiveChatReturn {
   const [messages,    setMessages]    = useState<ChatMessage[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [isSending,   setIsSending]   = useState(false)
   const [viewerCount, setViewerCount] = useState<number | null>(null)
+  const [sendError,   setSendError]   = useState<string | null>(null)
+  const [canSend,     setCanSend]     = useState(true)
+  const [isChatLost,  setIsChatLost]  = useState(false)
+  const maxMessageLength = chatMaxMessageLength(provider)
 
-  const channelRef  = useRef<unknown>(null)
-  const clientRef   = useRef<unknown>(null)
-  const rtmUidRef   = useRef('')
-  const optionsRef  = useRef(options)
-  optionsRef.current = options
+  const transportRef      = useRef<ChatTransport | null>(null)
+  const sendErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const optionsRef        = useRef(options)
 
   useEffect(() => {
-    let isMounted = true
+    optionsRef.current = options
+  })
 
-    async function fillGap() {
-      const result = await getChatHistory(liveId)
-      if (!isMounted || !result.ok) return
+  useEffect(() => {
+    let selfUserId = ''
 
-      setMessages((prev) => {
-        const existingIds = new Set(
-          prev.filter((m) => !m.id.startsWith('own-')).map((m) => m.id),
-        )
-        const incoming = result.messages.map((m) => mapHistory(m, rtmUidRef.current))
-        const gap      = incoming.filter((m) => !existingIds.has(m.id))
-
-        if (gap.length === 0) return prev
-
-        const serverContents = new Set(incoming.map((m) => m.content))
-        const pendingOwn     = prev.filter(
-          (m) => m.id.startsWith('own-') && !serverContents.has(m.content),
-        )
-        return [...incoming, ...pendingOwn]
-      })
-    }
-
-    async function connect() {
-      const tokenResult = await getChatToken(liveId)
-      if (!isMounted || !tokenResult.ok) return
-
-      const { token, channelName, appId, rtmUid } = tokenResult.data
-      rtmUidRef.current = rtmUid
-
-      // Initial history load — one single request on mount
-      const historyResult = await getChatHistory(liveId)
-      if (!isMounted) return
-      if (historyResult.ok) {
-        setMessages(historyResult.messages.map((m) => mapHistory(m, rtmUid)))
-      }
-
-      const mod = await import('agora-rtm-sdk')
-      const AgoraRTM = (mod.default ?? mod) as any
-      if (!isMounted) return
-
-      const client = AgoraRTM.createInstance
-        ? AgoraRTM.createInstance(appId)
-        : new AgoraRTM(appId)
-      clientRef.current = client
-
-      // Track previous RTM state to detect reconnection (RECONNECTING → CONNECTED)
-      let prevRtmState = 'CONNECTING'
-      client.on('ConnectionStateChanged', async (newState: string) => {
-        if (!isMounted) return
-
-        const wasReconnecting = prevRtmState === 'RECONNECTING'
-        prevRtmState = newState
-
-        setIsConnected(newState === 'CONNECTED')
-
-        if (newState === 'CONNECTED' && wasReconnecting) {
-          // Reconnected after a drop — fetch latest history once to fill the gap
-          await fillGap()
-        }
-      })
-
-      try {
-        await (client as any).login({ uid: rtmUid, token })
-      } catch {
-        return
-      }
-      if (!isMounted) return
-
-      const channel = (client as any).createChannel(channelName)
-      channelRef.current = channel
-
-      channel.on('ChannelMessage', (message: { text: string }, memberId: string) => {
-        if (!isMounted) return
-
-        const handled = handleSystemMessage(
-          message.text,
-          memberId,
-          optionsRef.current,
-          setViewerCount,
-        )
-        if (handled) return
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id:       `rtm-${memberId}-${Date.now()}`,
-            userId:   memberId,
-            username: displayUsername(memberId, rtmUidRef.current),
-            content:  message.text,
-            sentAt:   new Date().toISOString(),
-            color:    colorForUserId(memberId),
-          },
-        ])
-      })
-
-      try {
-        await channel.join()
-        if (isMounted) setIsConnected(true)
-      } catch {
-        // RTM unavailable — UI shows history-only
+    function dispatchRoomEvent(event: RoomEvent) {
+      const opts = optionsRef.current
+      switch (event.type) {
+        case 'viewer-count':      setViewerCount(event.count); break
+        case 'product-pinned':    opts.onProductPinned?.(event.event); break
+        case 'stock-update':      opts.onStockUpdate?.(event.event); break
+        case 'product-expired':   opts.onProductExpired?.(event.event); break
+        case 'live-reconnecting': opts.onLiveReconnecting?.(event.event); break
+        case 'live-ended':        opts.onLiveEnded?.(event.event); break
       }
     }
 
-    connect()
+    const handlers: ChatTransportHandlers = {
+      onIdentity: (id) => { selfUserId = id },
+      loadHistory: async (mode) => {
+        const result = await getChatHistory(liveId).catch(() => null)
+        if (!result?.ok || transportRef.current !== transport) return
+        const incoming = mapHistoryMessages(result.messages, {
+          selfUserId,
+          sellerId: optionsRef.current.sellerId,
+        })
+        if (provider === 'ivs') setMessages((prev) => mergeChatMessages(prev, incoming))
+        else if (mode === 'initial') setMessages(incoming)
+        else setMessages((prev) => applyAgoraHistoryGap(prev, incoming))
+      },
+      onMessage: (message) => setMessages((prev) => appendChatMessage(prev, message)),
+      onRoomEvent: dispatchRoomEvent,
+      onMessageDeleted: (messageId) => setMessages((prev) => removeChatMessage(prev, messageId)),
+      onConnectionChange: (connected) => {
+        setIsConnected(connected)
+        if (connected) setIsChatLost(false)
+      },
+      onSendPermission: setCanSend,
+      onGaveUp: () => setIsChatLost(true),
+    }
+
+    const transport = provider === 'ivs'
+      ? createIvsChatTransport(liveId, handlers, { requestToken: getIvsChatToken })
+      : createAgoraChatTransport(liveId, handlers)
+    transportRef.current = transport
+    transport.connect()
 
     return () => {
-      isMounted = false
-      const ch = channelRef.current as any
-      const cl = clientRef.current as any
-      channelRef.current = null
-      clientRef.current  = null
-      if (ch) ch.leave().catch(() => {})
-      if (cl) cl.logout().catch(() => {})
+      if (transportRef.current === transport) transportRef.current = null
+      transport.disconnect()
       setIsConnected(false)
+      setCanSend(true)
     }
-  }, [liveId])
+  }, [liveId, provider])
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim()) return
+  useEffect(() => () => {
+    if (sendErrorTimerRef.current !== null) clearTimeout(sendErrorTimerRef.current)
+  }, [])
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id:       `own-${Date.now()}`,
-        userId:   rtmUidRef.current || 'self',
-        username: 'Tú',
-        content:  text.trim(),
-        sentAt:   new Date().toISOString(),
-        color:    '#ff3d96',
-      },
-    ])
+  const showSendError = useCallback((text: string | null) => {
+    if (sendErrorTimerRef.current !== null) clearTimeout(sendErrorTimerRef.current)
+    sendErrorTimerRef.current = null
+    setSendError(text)
+    if (text !== null) {
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), SEND_ERROR_VISIBLE_MS)
+    }
+  }, [setSendError])
 
-    const channel = channelRef.current as any
-    if (!channel) return
+  const sendMessage = useCallback(async (raw: string) => {
+    const text = truncateChatText(raw, maxMessageLength)
+    const transport = transportRef.current
+    if (!text || !transport) return false
 
+    showSendError(null)
     setIsSending(true)
     try {
-      await channel.sendMessage({ text: text.trim() })
-    } catch {
-      // RTM send failed — message already shown locally
+      const outcome = await transport.send(text)
+      // Timed out: probably sent, so the caller clears the draft (a resend
+      // would duplicate it) and the user gets a soft notice instead.
+      if (outcome === 'pending') showSendError(SEND_PENDING_MESSAGE)
+      return true
+    } catch (err) {
+      if (isSendForbiddenError(err)) {
+        // Receive-only token (banned) — the input should already be disabled.
+        // Log the raw SDK error so e2e runs can capture it.
+        console.warn('[live-chat] send rejected: receive-only chat token', err)
+        setCanSend(false)
+      }
+      showSendError(sendErrorMessage(err))
+      return false
     } finally {
       setIsSending(false)
     }
-  }, [])
+  }, [showSendError, maxMessageLength, setIsSending, setCanSend])
 
-  return { messages, sendMessage, isConnected, isSending, viewerCount }
+  const deleteMessage = useCallback(async (message: ChatMessage): Promise<ChatModerationResult> => {
+    const messageId = message.providerMessageId
+    if (!messageId) return { ok: false, error: 'Este mensaje no se puede eliminar' }
+    const result = await deleteChatMessage(liveId, messageId).catch(
+      (): ChatModerationResult => ({ ok: false, error: NETWORK_ERROR }),
+    )
+    if (result.ok) setMessages((prev) => removeChatMessage(prev, messageId))
+    return result
+  }, [liveId, setMessages])
+
+  const banUser = useCallback(
+    (userId: string): Promise<ChatModerationResult> =>
+      banChatUser(liveId, userId).catch((): ChatModerationResult => ({ ok: false, error: NETWORK_ERROR })),
+    [liveId],
+  )
+
+  return {
+    messages,
+    sendMessage,
+    isConnected,
+    isSending,
+    viewerCount,
+    chatProvider: provider,
+    sendError,
+    canSend,
+    isChatLost,
+    maxMessageLength,
+    deleteMessage,
+    banUser,
+  }
 }

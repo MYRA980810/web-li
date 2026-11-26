@@ -7,7 +7,11 @@ import {
   type ProductPinnedEvent,
   type StockUpdateEvent,
   type ProductExpiredEvent,
+  type ChatMessage,
 } from '@/hooks/useLiveChat'
+import { useChatBans } from '@/hooks/useChatBans'
+import { ChatMessageSheet } from './ChatMessageSheet'
+import { ChatBansSheet } from './ChatBansSheet'
 import { LiveStockDrawer, type LiveProduct } from './LiveStockDrawer'
 import { LiveAddProductDrawer } from './LiveAddProductDrawer'
 import { LiveCatalogProductDrawer } from './LiveCatalogProductDrawer'
@@ -31,7 +35,24 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
   const [catalogOpen,    setCatalogOpen]    = useState(false)
   const [featured,       setFeatured]       = useState<LiveProduct | null>(null)
 
-  const { messages, sendMessage, isConnected, isSending, viewerCount } = useLiveChat(live.id, {
+  const [moderationError, setModerationError] = useState<string | null>(null)
+  const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null)
+  /** Non-null while the "Bloqueados" sheet is open (relative times use it). */
+  const [bansOpenedAt,    setBansOpenedAt]    = useState<number | null>(null)
+
+  const {
+    messages,
+    sendMessage,
+    isConnected,
+    isSending,
+    viewerCount,
+    chatProvider,
+    sendError,
+    maxMessageLength,
+    deleteMessage,
+    banUser,
+  } = useLiveChat(live.id, live.chatProvider, {
+    sellerId: live.sellerId,
     onStockUpdate: ({ liveProductId, stockRemaining }: StockUpdateEvent) => {
       setFeatured((prev) =>
         prev?.id === liveProductId ? { ...prev, stock: stockRemaining } : prev,
@@ -46,8 +67,22 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
     },
   })
 
-  const chatBottomRef = useRef<HTMLDivElement>(null)
-  const videoRef      = useRef<HTMLVideoElement>(null)
+  const canModerate = chatProvider === 'ivs'
+  const chatBans    = useChatBans(live.id, canModerate)
+
+  const chatBottomRef        = useRef<HTMLDivElement>(null)
+  const videoRef             = useRef<HTMLVideoElement>(null)
+  const moderationErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (moderationErrorTimer.current !== null) clearTimeout(moderationErrorTimer.current)
+  }, [])
+
+  function showModerationError(error: string) {
+    if (moderationErrorTimer.current !== null) clearTimeout(moderationErrorTimer.current)
+    setModerationError(error)
+    moderationErrorTimer.current = setTimeout(() => setModerationError(null), 4000)
+  }
 
   useEffect(() => {
     if (!stream || !videoRef.current) return
@@ -68,8 +103,37 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
     if (!replyText.trim() || isSending) return
     const text = replyText
     setReplyText('')
-    await sendMessage(text)
+    const sent = await sendMessage(text)
+    // Restore the draft when IVS rejected it (sendError explains why).
+    if (!sent) setReplyText(text)
   }
+
+  async function handleBan(message: ChatMessage) {
+    const result = await banUser(message.userId)
+    if (result.ok) {
+      chatBans.recordBan({
+        userId:      message.userId,
+        displayName: message.username,
+        bannedAt:    new Date().toISOString(),
+      })
+      setSelectedMessage(null)
+      if (result.notice) showModerationError(result.notice)
+    }
+    return result
+  }
+
+  async function handleDeleteMessage(message: ChatMessage) {
+    const result = await deleteMessage(message)
+    if (result.ok) setSelectedMessage(null)
+    return result
+  }
+
+  function openBans() {
+    setBansOpenedAt(Date.now())
+    chatBans.refresh()
+  }
+
+  const chatNotice = sendError ?? moderationError
 
   const formattedViewers = viewerCount === null
     ? '—'
@@ -103,9 +167,32 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
           <span className="seller-live-store-name">{storeName}</span>
           <span className="seller-live-badge">LIVE</span>
         </div>
-        <button className="seller-live-close" onClick={onEnd} aria-label="Terminar live">
-          ✕
-        </button>
+        <div className="flex items-center gap-2.5">
+          {canModerate && (
+            <button
+              type="button"
+              className="seller-live-shield-btn"
+              onClick={openBans}
+              aria-label={`Usuarios bloqueados (${chatBans.bans.length})`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3Z"
+                  stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"
+                />
+                <path d="M9 9l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              {chatBans.bans.length > 0 && (
+                <span className="seller-live-shield-count" aria-hidden="true">
+                  {chatBans.bans.length > 99 ? '99+' : chatBans.bans.length}
+                </span>
+              )}
+            </button>
+          )}
+          <button className="seller-live-close" onClick={onEnd} aria-label="Terminar live">
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* ── Stats bar ── */}
@@ -141,24 +228,81 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
       </div>
 
       {/* ── Chat messages ── */}
-      <div className="seller-live-chat" aria-live="polite" aria-label="Chat de la transmisión">
-        {messages.length === 0 && (
-          <div className="seller-live-msg">
-            <span className="seller-live-msg-text" style={{ opacity: 0.45 }}>
-              {isConnected ? 'Aún no hay mensajes.' : 'Esperando mensajes...'}
-            </span>
+      <div className="seller-live-chat-panel">
+        {canModerate && (
+          <div className="flex items-center justify-between gap-3 px-3.5 pb-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-(--ink-3)">Chat en vivo</span>
+            <span className="text-[11px] font-semibold text-(--ink-3)">Toca un mensaje para moderar</span>
           </div>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className="seller-live-msg">
-            <span className="seller-live-msg-user" style={{ color: msg.color }}>
-              {msg.username}
-            </span>
-            <span className="seller-live-msg-text">{msg.content}</span>
-          </div>
-        ))}
-        <div ref={chatBottomRef} />
+        <div className="seller-live-chat" aria-live="polite" aria-label="Chat de la transmisión">
+          {messages.length === 0 && (
+            <div className="seller-live-msg">
+              <span className="seller-live-msg-text" style={{ opacity: 0.45 }}>
+                {isConnected ? 'Aún no hay mensajes.' : 'Esperando mensajes...'}
+              </span>
+            </div>
+          )}
+          {messages.map((msg) => {
+            const content = (
+              <>
+                <span className="seller-live-msg-user" style={{ color: msg.color }}>
+                  {msg.username}
+                </span>
+                {msg.isHost && <span className="seller-live-msg-role">Anfitrión</span>}
+                <span className="seller-live-msg-text">{msg.content}</span>
+              </>
+            )
+            // Only other users' messages are moderable, and only on IVS chat.
+            if (canModerate && !msg.isOwn && !msg.isHost) {
+              return (
+                <button
+                  key={msg.id}
+                  type="button"
+                  className="seller-live-msg is-tappable text-left"
+                  onClick={() => setSelectedMessage(msg)}
+                  aria-label={`Moderar mensaje de ${msg.username}: ${msg.content}`}
+                >
+                  {content}
+                </button>
+              )
+            }
+            return (
+              <div key={msg.id} className={`seller-live-msg${msg.isHost ? ' is-mod' : ''}`}>
+                {content}
+              </div>
+            )
+          })}
+          {chatNotice && (
+            <div className="seller-live-msg" role="alert">
+              <span className="text-[13px] font-semibold text-red-300">{chatNotice}</span>
+            </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
       </div>
+
+      {/* ── Moderation sheets (IVS only, mounted on tap) ── */}
+      {canModerate && selectedMessage && (
+        <ChatMessageSheet
+          key={selectedMessage.id}
+          message={selectedMessage}
+          onClose={() => setSelectedMessage(null)}
+          onBan={handleBan}
+          onDelete={handleDeleteMessage}
+        />
+      )}
+      {canModerate && bansOpenedAt !== null && (
+        <ChatBansSheet
+          bans={chatBans.bans}
+          status={chatBans.status}
+          error={chatBans.error}
+          now={bansOpenedAt}
+          onClose={() => setBansOpenedAt(null)}
+          onRetry={chatBans.refresh}
+          onUnban={chatBans.unban}
+        />
+      )}
 
       {/* ── Product showcase (visible only after first LANZAR) ── */}
       {featured && (
@@ -238,6 +382,7 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
           }}
           aria-label="Responder al chat"
+          maxLength={maxMessageLength}
           disabled={isSending}
         />
         <button className="seller-live-emoji-btn" aria-label="Emoji" type="button">

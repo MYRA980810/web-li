@@ -133,7 +133,10 @@ function LiveFeedContent({ live, products, store, initialFollowing, initialOrder
 
   const pinnedProduct = liveProducts.find((p) => p.isPinned) ?? null
 
-  const { messages, sendMessage, viewerCount } = useLiveChat(live.id, {
+  const { messages, sendMessage, viewerCount, sendError, canSend, isChatLost, maxMessageLength } = useLiveChat(live.id, live.chatProvider, {
+    sellerId: live.sellerId,
+    // The live ended: re-fetch it so the screen switches to its ended state.
+    onLiveEnded: () => router.refresh(),
     onProductPinned: () => {
       void getLiveProducts(live.id).then((result) => {
         if (result.ok) setLiveProducts(result.products)
@@ -328,7 +331,17 @@ function LiveFeedContent({ live, products, store, initialFollowing, initialOrder
           />
         )}
 
-        <LiveChatInput onSend={(text) => void sendMessage(text)} />
+        {!canSend ? (
+          <p role="status" className="live-player-chat-input flex items-center text-white/70">
+            El vendedor te bloqueó del chat
+          </p>
+        ) : (
+          <LiveChatInput
+            onSend={sendMessage}
+            maxLength={maxMessageLength}
+            error={sendError ?? (isChatLost ? 'Chat desconectado. Reintentaremos al volver la conexión.' : null)}
+          />
+        )}
       </div>
 
       {bagTab && (

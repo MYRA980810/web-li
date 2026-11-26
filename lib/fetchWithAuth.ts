@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { clearSessionCookies, refreshAccessToken } from './session'
+import { extractProblemCode } from './liveChat/chatErrors'
 
 export const API = process.env.API_URL ?? 'http://localhost:8080'
 
@@ -10,6 +11,22 @@ export async function parseProblemDetail(res: Response): Promise<string> {
     return data.detail ?? data.message ?? 'Ocurrió un error inesperado'
   } catch {
     return 'Ocurrió un error inesperado'
+  }
+}
+
+/** Like parseProblemDetail, but also returns the machine-readable error code
+ * (`code` property, else the last segment of the `type` URI). */
+export async function parseProblem(res: Response): Promise<{ message: string; code: string | null }> {
+  try {
+    const data: unknown = await res.json()
+    const body = (data ?? {}) as { detail?: unknown; message?: unknown }
+    const message =
+      typeof body.detail === 'string' ? body.detail
+      : typeof body.message === 'string' ? body.message
+      : 'Ocurrió un error inesperado'
+    return { message, code: extractProblemCode(data) }
+  } catch {
+    return { message: 'Ocurrió un error inesperado', code: null }
   }
 }
 

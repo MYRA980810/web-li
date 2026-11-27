@@ -1,7 +1,7 @@
 import type { ChatRoom, ChatToken } from 'amazon-ivs-chat-messaging'
 import type { GetIvsChatTokenResult, IvsChatTokenData } from '@/lib/liveActions'
 import { mapIvsMessage } from './chatMessages'
-import { classifyChatTokenError, isTerminalChatStop, type ChatStopKind } from './chatErrors'
+import { CHAT_NETWORK_ERROR, classifyChatTokenError, isTerminalChatStop, type ChatStopKind } from './chatErrors'
 import { TOKEN_RETRY_DELAY_MS, reconnectDelayMs, toChatTokenDate } from './chatReconnect'
 import { isSelfUnbanEvent, parseRoomEvent } from './roomEvents'
 import type { ChatTransport, ChatTransportHandlers, SendOutcome } from './chatTransport'
@@ -127,7 +127,7 @@ export function createIvsChatTransport(
       return await deps.requestToken(liveId)
     } catch {
       // The server action call itself failed (offline, deploy) — retryable.
-      return { ok: false, status: 0, code: null, error: 'No se pudo conectar con el servidor' }
+      return { ok: false, status: 0, code: null, error: CHAT_NETWORK_ERROR }
     }
   }
 
@@ -278,7 +278,17 @@ export function createIvsChatTransport(
       handlers.onIdentity(selfUserId)
       handlers.onSendPermission(first.data.canSend)
 
-      sdk ??= await loadSdk()
+      if (!sdk) {
+        try {
+          sdk = await loadSdk()
+        } catch (err) {
+          // Chunk load failed (offline, stale deploy): surface it like any other
+          // resumable stop so the UI shows the chat as lost; resume() retries.
+          console.error('[live-chat] failed to load the IVS chat SDK', err)
+          stop('fatal')
+          return
+        }
+      }
       if (!isActive()) return
 
       prefetched = toChatToken(first.data)

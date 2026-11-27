@@ -1,15 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import {
   listChatBans,
   unbanChatUser,
   type ChatModerationResult,
   type ListChatBansResult,
 } from '@/lib/liveActions'
-import { addChatBan, removeChatBan, type ChatBan } from '@/lib/liveChat/chatBans'
+import type { ChatBan } from '@/lib/liveChat/chatBans'
+import { chatBansReducer, initialChatBansState, type ChatBansStatus } from '@/lib/liveChat/chatBansState'
+import { CHAT_NETWORK_ERROR } from '@/lib/liveChat/chatErrors'
 
-export type ChatBansStatus = 'idle' | 'loading' | 'ready' | 'error'
+export type { ChatBansStatus } from '@/lib/liveChat/chatBansState'
 
 export type UseChatBansReturn = {
   bans:   ChatBan[]
@@ -23,37 +25,20 @@ export type UseChatBansReturn = {
   unban:      (userId: string) => Promise<ChatModerationResult>
 }
 
-const NETWORK_ERROR = 'No se pudo conectar con el servidor'
-
 /** Seller's chat ban list (IVS only; pass enabled=false for Agora lives). */
 export function useChatBans(liveId: string, enabled: boolean): UseChatBansReturn {
-  const [bans,   setBans]   = useState<ChatBan[]>([])
-  const [status, setStatus] = useState<ChatBansStatus>(enabled ? 'loading' : 'idle')
-  const [error,  setError]  = useState<string | null>(null)
+  const [state, dispatch] = useReducer(chatBansReducer, enabled, initialChatBansState)
 
-  // Bumped on every local mutation and every fetch: a fetch result is only
-  // applied if nothing changed since it started, so it never undoes an
-  // optimistic add/remove that raced with it.
-  const versionRef = useRef(0)
-
-  const applyFetch = useCallback((result: ListChatBansResult, version: number) => {
-    if (versionRef.current !== version) return
-    if (result.ok) {
-      setBans(result.bans)
-      setError(null)
-      setStatus('ready')
-    } else {
-      setError(result.error)
-      setStatus('error')
-    }
-  }, [])
+  // Ids for list requests: only the latest one settles the state (see chatBansReducer).
+  const requestIdRef = useRef(0)
 
   const fetchBans = useCallback(() => {
-    const version = ++versionRef.current
+    const requestId = ++requestIdRef.current
+    dispatch({ type: 'fetch-start', requestId })
     listChatBans(liveId)
-      .catch((): ListChatBansResult => ({ ok: false, error: NETWORK_ERROR }))
-      .then((result) => applyFetch(result, version))
-  }, [liveId, applyFetch])
+      .catch((): ListChatBansResult => ({ ok: false, error: CHAT_NETWORK_ERROR }))
+      .then((result) => dispatch({ type: 'fetch-settled', requestId, result }))
+  }, [liveId])
 
   // Initial load so the shield badge reflects bans from earlier lives.
   useEffect(() => {
@@ -61,26 +46,20 @@ export function useChatBans(liveId: string, enabled: boolean): UseChatBansReturn
   }, [enabled, fetchBans])
 
   const refresh = useCallback(() => {
-    if (!enabled) return
-    setStatus('loading')
-    fetchBans()
+    if (enabled) fetchBans()
   }, [enabled, fetchBans])
 
   const recordBan = useCallback((ban: ChatBan) => {
-    versionRef.current++
-    setBans((prev) => addChatBan(prev, ban))
+    dispatch({ type: 'ban-recorded', ban })
   }, [])
 
   const unban = useCallback(async (userId: string): Promise<ChatModerationResult> => {
     const result = await unbanChatUser(liveId, userId).catch(
-      (): ChatModerationResult => ({ ok: false, error: NETWORK_ERROR }),
+      (): ChatModerationResult => ({ ok: false, error: CHAT_NETWORK_ERROR }),
     )
-    if (result.ok) {
-      versionRef.current++
-      setBans((prev) => removeChatBan(prev, userId))
-    }
+    if (result.ok) dispatch({ type: 'unbanned', userId })
     return result
   }, [liveId])
 
-  return { bans, status, error, refresh, recordBan, unban }
+  return { bans: state.bans, status: state.status, error: state.error, refresh, recordBan, unban }
 }

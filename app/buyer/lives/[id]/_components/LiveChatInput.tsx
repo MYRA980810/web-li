@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { SendIcon } from '@/components/icons/LiveActionIcons'
 
 export type LiveChatInputProps = {
   /** Resolves true when sent; the draft is kept on failure. */
   onSend: (text: string) => Promise<boolean>
+  /** Owned by the parent so the draft survives this input being unmounted
+   * (e.g. swapped for the banned notice and back after an unban). */
+  draft: string
+  onDraftChange: Dispatch<SetStateAction<string>>
   /** 500 for IVS lives, 300 for Agora lives. */
   maxLength: number
   disabled?: boolean
@@ -13,8 +17,14 @@ export type LiveChatInputProps = {
   error?: string | null
 }
 
-export function LiveChatInput({ onSend, maxLength, disabled = false, error = null }: LiveChatInputProps) {
-  const [text, setText] = useState('')
+export function LiveChatInput({
+  onSend,
+  draft: text,
+  onDraftChange: setText,
+  maxLength,
+  disabled = false,
+  error = null,
+}: LiveChatInputProps) {
   const [sending, setSending] = useState(false)
   const canSend = !disabled && !sending && text.trim().length > 0
 

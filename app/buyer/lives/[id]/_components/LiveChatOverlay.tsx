@@ -22,6 +22,11 @@ export function LiveChatOverlay({ messages }: LiveChatOverlayProps) {
             <span className="font-display font-extrabold mr-1.5" style={{ color: m.color }}>
               {m.username}
             </span>
+            {m.isHost && (
+              <span className="mr-1.5 rounded-full bg-brand-500 px-1.5 py-px align-middle text-[10px] font-bold uppercase tracking-wide text-white">
+                Anfitrión
+              </span>
+            )}
             {m.content}
           </p>
         </li>

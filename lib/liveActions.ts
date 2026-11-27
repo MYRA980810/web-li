@@ -1,7 +1,9 @@
 'use server'
 
 import { createLiveSchema, type CreateLiveInput } from './schemas'
-import { API, parseProblemDetail, requireToken, getToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import { API, parseProblemDetail, parseProblem, requireToken, getToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
+import { parseChatBans, type ChatBan } from './liveChat/chatBans'
+import { parseIvsChatTokenBody } from './liveChat/chatToken'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +24,12 @@ export type LiveResponse = {
   createdAt: string
   ivsPlaybackUrl: string | null
   categoryId: string | null
+  /** "ivs" iff the live has an IVS chat room (created at /start, so SCHEDULED
+   * lives are always "agora"). Missing → treat as "agora". */
+  chatProvider?: ChatProvider
 }
+
+export type ChatProvider = 'ivs' | 'agora'
 
 // ─── createLive ───────────────────────────────────────────────────────────────
 
@@ -402,6 +409,148 @@ export async function getChatToken(liveId: string): Promise<GetChatTokenResult> 
   return { ok: true, data: { ...data, rtmUid } }
 }
 
+// ─── getIvsChatToken ──────────────────────────────────────────────────────────
+
+export type IvsChatTokenData = {
+  token: string
+  sessionExpirationTime: string | number | null
+  tokenExpirationTime: string | number | null
+  region: string
+  /** False for a buyer banned by the seller: the token is receive-only. */
+  canSend: boolean
+  /** Current user's id (JWT sub) — equals the IVS `sender.userId` of own messages. */
+  userId: string
+}
+
+/** On failure `status` is the HTTP status (0 = network failure) and `code` the
+ * ProblemDetail code, so the caller can tell retryable from terminal errors. */
+export type GetIvsChatTokenResult =
+  | { ok: true;  data: IvsChatTokenData }
+  | { ok: false; status: number; code: string | null; error: string }
+
+/** IVS Chat tokens are single-use: request a fresh one on every (re)connect. */
+export async function getIvsChatToken(liveId: string): Promise<GetIvsChatTokenResult> {
+  const token  = await requireToken()
+  const userId = extractSubFromJwt(token)
+  if (!userId) return { ok: false, status: 401, code: null, error: 'No se pudo obtener la identidad del usuario' }
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(
+      `${API}/api/lives/${encodeURIComponent(liveId)}/chat/token`,
+      { method: 'GET', cache: 'no-store' },
+      token,
+    )
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, status: 0, code: null, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (!res.ok) {
+    const { message, code } = await parseProblem(res)
+    return { ok: false, status: res.status, code, error: message }
+  }
+
+  const data = parseIvsChatTokenBody(await res.json().catch(() => null), userId)
+  if (!data) return { ok: false, status: 502, code: null, error: 'Respuesta inválida del servidor de chat' }
+  return { ok: true, data }
+}
+
+// ─── IVS chat moderation (SELLER, owner of the live) ─────────────────────────
+
+/** `notice`: the action was committed but a side effect failed (shown softly). */
+export type ChatModerationResult =
+  | { ok: true; notice?: string }
+  | { ok: false; error: string }
+
+const MAX_BAN_REASON_LENGTH = 256
+const MAX_CHAT_MESSAGE_ID_LENGTH = 128
+
+/** `committed`: an error status that still means the action was persisted. */
+async function sendChatModerationRequest(
+  url: string,
+  init: RequestInit,
+  committed?: { status: number; notice: string },
+): Promise<ChatModerationResult> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(url, init, token)
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (res.ok) return { ok: true }
+  if (committed && res.status === committed.status) return { ok: true, notice: committed.notice }
+  return { ok: false, error: await parseProblemDetail(res) }
+}
+
+/** Idempotent; also disconnects the user from the room. Bans are per seller.
+ * 503 = the ban is committed but disconnecting the user from IVS failed. */
+export async function banChatUser(liveId: string, userId: string, reason?: string): Promise<ChatModerationResult> {
+  const trimmed = reason?.trim().slice(0, MAX_BAN_REASON_LENGTH)
+  return sendChatModerationRequest(
+    `${API}/api/lives/${encodeURIComponent(liveId)}/chat/bans`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(trimmed ? { userId, reason: trimmed } : { userId }),
+    },
+    { status: 503, notice: 'Usuario bloqueado. Puede tardar unos segundos en salir del chat.' },
+  )
+}
+
+/** Idempotent: 204 even if the user was not banned. */
+export async function unbanChatUser(liveId: string, userId: string): Promise<ChatModerationResult> {
+  return sendChatModerationRequest(
+    `${API}/api/lives/${encodeURIComponent(liveId)}/chat/bans/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export type ListChatBansResult =
+  | { ok: true; bans: ChatBan[] }
+  | { ok: false; error: string }
+
+/** Active bans of the live's seller, newest first.
+ * PENDING backend: until GET ships it answers 404/405, reported as an error. */
+export async function listChatBans(liveId: string): Promise<ListChatBansResult> {
+  const token = await requireToken()
+
+  let res: Response
+  try {
+    res = await fetchWithAuth(
+      `${API}/api/lives/${encodeURIComponent(liveId)}/chat/bans`,
+      { method: 'GET', cache: 'no-store' },
+      token,
+    )
+  } catch (err) {
+    if (isNextInternalError(err)) throw err
+    return { ok: false, error: 'No se pudo conectar con el servidor' }
+  }
+
+  if (res.status === 404 || res.status === 405) {
+    return { ok: false, error: 'La lista de bloqueados aún no está disponible' }
+  }
+  if (!res.ok) return { ok: false, error: await parseProblemDetail(res) }
+
+  const body: unknown = await res.json().catch(() => null)
+  return { ok: true, bans: parseChatBans(body) }
+}
+
+/** `messageId` is the IVS message id (ChatMessage.providerMessageId). */
+export async function deleteChatMessage(liveId: string, messageId: string): Promise<ChatModerationResult> {
+  if (!messageId || messageId.length > MAX_CHAT_MESSAGE_ID_LENGTH) {
+    return { ok: false, error: 'Mensaje inválido' }
+  }
+  return sendChatModerationRequest(
+    `${API}/api/lives/${encodeURIComponent(liveId)}/chat/messages/${encodeURIComponent(messageId)}`,
+    { method: 'DELETE' },
+  )
+}
+
 // ─── getLiveFeedToken ─────────────────────────────────────────────────────────
 
 export type FeedTokenData = {
@@ -442,8 +591,12 @@ export async function getLiveFeedToken(): Promise<GetLiveFeedTokenResult> {
 
 // ─── getChatHistory ───────────────────────────────────────────────────────────
 
+/** History is returned newest-first; `before` is an exclusive ISO cursor. */
 export type ChatHistoryMessage = {
   id: string
+  /** Provider message id (IVS for IVS-era rows, Agora for older ones). Never
+   * null; equals the IVS realtime message id, so it is the dedupe key. */
+  providerMessageId: string
   userId: string
   username: string
   content: string
@@ -457,7 +610,7 @@ export type GetChatHistoryResult =
 export async function getChatHistory(liveId: string, limit = 50, before?: string): Promise<GetChatHistoryResult> {
   const token = await requireToken()
 
-  const params = new URLSearchParams({ limit: String(limit) })
+  const params = new URLSearchParams({ limit: String(Math.min(Math.max(1, limit), 100)) })
   if (before) params.set('before', before)
 
   let res: Response

@@ -65,6 +65,12 @@ const IVS_NOT_ACCEPTABLE = 406 // rejected by the message review handler
 const IVS_PAYLOAD_TOO_LARGE = 413
 const IVS_TOO_MANY_REQUESTS = 429
 
+/** A chat server action (token, history, moderation) could not reach the backend. */
+export const CHAT_NETWORK_ERROR = 'No se pudo conectar con el servidor'
+
+/** How long a transient chat notice (send rejection, moderation error) stays visible. */
+export const CHAT_NOTICE_VISIBLE_MS = 4000
+
 export const SEND_ERROR_GENERIC = 'No se pudo enviar tu mensaje'
 /** The room didn't confirm in time: the message was probably sent and may
  * still show up, so the draft is not kept (resending would duplicate it). */

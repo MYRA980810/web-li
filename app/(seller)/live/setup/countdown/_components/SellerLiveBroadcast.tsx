@@ -10,6 +10,7 @@ import {
   type ChatMessage,
 } from '@/hooks/useLiveChat'
 import { useChatBans } from '@/hooks/useChatBans'
+import { CHAT_NOTICE_VISIBLE_MS } from '@/lib/liveChat/chatErrors'
 import { ChatMessageSheet } from './ChatMessageSheet'
 import { ChatBansSheet } from './ChatBansSheet'
 import { LiveStockDrawer, type LiveProduct } from './LiveStockDrawer'
@@ -81,7 +82,7 @@ export function SellerLiveBroadcast({ live, stream, storeName, onEnd, products, 
   function showModerationError(error: string) {
     if (moderationErrorTimer.current !== null) clearTimeout(moderationErrorTimer.current)
     setModerationError(error)
-    moderationErrorTimer.current = setTimeout(() => setModerationError(null), 4000)
+    moderationErrorTimer.current = setTimeout(() => setModerationError(null), CHAT_NOTICE_VISIBLE_MS)
   }
 
   useEffect(() => {

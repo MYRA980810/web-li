@@ -4,6 +4,7 @@ import { createLiveSchema, type CreateLiveInput } from './schemas'
 import { API, parseProblemDetail, parseProblem, requireToken, getToken, isNextInternalError, fetchWithAuth } from './fetchWithAuth'
 import { parseChatBans, type ChatBan } from './liveChat/chatBans'
 import { parseIvsChatTokenBody } from './liveChat/chatToken'
+import { CHAT_NETWORK_ERROR } from './liveChat/chatErrors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -397,7 +398,7 @@ export async function getChatToken(liveId: string): Promise<GetChatTokenResult> 
     res = await fetchWithAuth(`${API}/api/lives/${liveId}/rtm/token`, { method: 'GET' }, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
-    return { ok: false, error: 'No se pudo conectar con el servidor' }
+    return { ok: false, error: CHAT_NETWORK_ERROR }
   }
 
   if (!res.ok) {
@@ -443,7 +444,7 @@ export async function getIvsChatToken(liveId: string): Promise<GetIvsChatTokenRe
     )
   } catch (err) {
     if (isNextInternalError(err)) throw err
-    return { ok: false, status: 0, code: null, error: 'No se pudo conectar con el servidor' }
+    return { ok: false, status: 0, code: null, error: CHAT_NETWORK_ERROR }
   }
 
   if (!res.ok) {
@@ -479,7 +480,7 @@ async function sendChatModerationRequest(
     res = await fetchWithAuth(url, init, token)
   } catch (err) {
     if (isNextInternalError(err)) throw err
-    return { ok: false, error: 'No se pudo conectar con el servidor' }
+    return { ok: false, error: CHAT_NETWORK_ERROR }
   }
 
   if (res.ok) return { ok: true }
@@ -528,7 +529,7 @@ export async function listChatBans(liveId: string): Promise<ListChatBansResult> 
     )
   } catch (err) {
     if (isNextInternalError(err)) throw err
-    return { ok: false, error: 'No se pudo conectar con el servidor' }
+    return { ok: false, error: CHAT_NETWORK_ERROR }
   }
 
   if (res.status === 404 || res.status === 405) {
@@ -622,7 +623,7 @@ export async function getChatHistory(liveId: string, limit = 50, before?: string
     )
   } catch (err) {
     if (isNextInternalError(err)) throw err
-    return { ok: false, error: 'No se pudo conectar con el servidor' }
+    return { ok: false, error: CHAT_NETWORK_ERROR }
   }
 
   if (!res.ok) {

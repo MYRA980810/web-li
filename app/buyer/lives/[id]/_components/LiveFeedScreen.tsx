@@ -129,6 +129,8 @@ function LiveFeedContent({ live, products, store, initialFollowing, initialOrder
   const [liked, setLiked] = useState(false)
   const [shareLabel, setShareLabel] = useState(SHARE_LABEL)
   const [bagTab, setBagTab] = useState<LiveBagTab | null>(null)
+  // Lives here, not in LiveChatInput, so a ban (input swapped for a notice) keeps it.
+  const [chatDraft, setChatDraft] = useState('')
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const pinnedProduct = liveProducts.find((p) => p.isPinned) ?? null
@@ -338,6 +340,8 @@ function LiveFeedContent({ live, products, store, initialFollowing, initialOrder
         ) : (
           <LiveChatInput
             onSend={sendMessage}
+            draft={chatDraft}
+            onDraftChange={setChatDraft}
             maxLength={maxMessageLength}
             error={sendError ?? (isChatLost ? 'Chat desconectado. Reintentaremos al volver la conexión.' : null)}
           />

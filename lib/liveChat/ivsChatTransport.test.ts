@@ -103,7 +103,7 @@ function makeHandlers() {
   } satisfies ChatTransportHandlers
 }
 
-function setup(tokens: GetIvsChatTokenResult[]) {
+function setup(tokens: GetIvsChatTokenResult[], overrides: Partial<IvsChatTransportDeps> = {}) {
   let n = 0
   const requestToken = vi.fn(async () => tokens[Math.min(n++, tokens.length - 1)])
   let resume: (() => void) | null = null
@@ -116,6 +116,7 @@ function setup(tokens: GetIvsChatTokenResult[]) {
       return unsubscribeResume
     },
     tokenRetryDelayMs: 0,
+    ...overrides,
   }
   const handlers = makeHandlers()
   const transport = createIvsChatTransport('live-1', handlers, deps)
@@ -373,6 +374,29 @@ describe('createIvsChatTransport', () => {
     ctx.resume()
     expect(room.connectCalls).toBe(calls + 1)
     expect((await room.config.tokenProvider()).token).toBe('tok-2')
+  })
+
+  it('reports a failed SDK import as a resumable stop, logs it, and retries on resume', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const importError = new Error('ChunkLoadError')
+    const loadSdk = vi.fn<() => Promise<IvsSdk>>()
+      .mockRejectedValueOnce(importError)
+      .mockResolvedValue(sdk)
+    const ctx = setup([okToken(1), okToken(2)], { loadSdk })
+
+    ctx.transport.connect()
+    await flush()
+
+    expect(FakeChatRoom.instances).toHaveLength(0)
+    expect(ctx.handlers.onConnectionChange).toHaveBeenLastCalledWith(false)
+    expect(ctx.handlers.onGaveUp).toHaveBeenCalledTimes(1)
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('[live-chat]'), importError)
+
+    ctx.resume()
+    await flush()
+    expect(loadSdk).toHaveBeenCalledTimes(2)
+    expect(FakeChatRoom.instances).toHaveLength(1)
+    error.mockRestore()
   })
 
   it('a terminal stop does not report gave-up', async () => {

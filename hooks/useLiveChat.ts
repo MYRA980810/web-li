@@ -19,7 +19,13 @@ import {
   removeChatMessage,
   type ChatMessage,
 } from '@/lib/liveChat/chatMessages'
-import { SEND_PENDING_MESSAGE, isSendForbiddenError, sendErrorMessage } from '@/lib/liveChat/chatErrors'
+import {
+  CHAT_NETWORK_ERROR,
+  CHAT_NOTICE_VISIBLE_MS,
+  SEND_PENDING_MESSAGE,
+  isSendForbiddenError,
+  sendErrorMessage,
+} from '@/lib/liveChat/chatErrors'
 import { createAgoraChatTransport } from '@/lib/liveChat/agoraChatTransport'
 import { createIvsChatTransport } from '@/lib/liveChat/ivsChatTransport'
 import type { ChatTransport, ChatTransportHandlers } from '@/lib/liveChat/chatTransport'
@@ -40,9 +46,6 @@ export type {
   ProductPinnedEvent,
   StockUpdateEvent,
 } from '@/lib/liveChat/roomEvents'
-
-const SEND_ERROR_VISIBLE_MS = 4000
-const NETWORK_ERROR = 'No se pudo conectar con el servidor'
 
 export type UseLiveChatOptions = {
   onProductPinned?:    (event: ProductPinnedEvent)    => void
@@ -168,7 +171,7 @@ export function useLiveChat(
     sendErrorTimerRef.current = null
     setSendError(text)
     if (text !== null) {
-      sendErrorTimerRef.current = setTimeout(() => setSendError(null), SEND_ERROR_VISIBLE_MS)
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), CHAT_NOTICE_VISIBLE_MS)
     }
   }, [setSendError])
 
@@ -203,7 +206,7 @@ export function useLiveChat(
     const messageId = message.providerMessageId
     if (!messageId) return { ok: false, error: 'Este mensaje no se puede eliminar' }
     const result = await deleteChatMessage(liveId, messageId).catch(
-      (): ChatModerationResult => ({ ok: false, error: NETWORK_ERROR }),
+      (): ChatModerationResult => ({ ok: false, error: CHAT_NETWORK_ERROR }),
     )
     if (result.ok) setMessages((prev) => removeChatMessage(prev, messageId))
     return result
@@ -211,7 +214,7 @@ export function useLiveChat(
 
   const banUser = useCallback(
     (userId: string): Promise<ChatModerationResult> =>
-      banChatUser(liveId, userId).catch((): ChatModerationResult => ({ ok: false, error: NETWORK_ERROR })),
+      banChatUser(liveId, userId).catch((): ChatModerationResult => ({ ok: false, error: CHAT_NETWORK_ERROR })),
     [liveId],
   )
 
